@@ -36,7 +36,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	mrand "math/rand"
 	"os"
 	"time"
 
@@ -48,6 +47,12 @@ import (
 	"github.com/libp2p/go-libp2p-peerstore"
 	"github.com/multiformats/go-multiaddr"
 )
+
+func check(err error) {
+	if (err != nil) {
+		panic(err)
+	}
+}
 
 /*
 * addAddrToPeerstore parses a peer multiaddress and adds
@@ -129,26 +134,12 @@ func writeData(rw *bufio.ReadWriter) {
 
 }
 
-func main() {
-
-	sourcePort := flag.Int("sp", 8964, "Source port number")
-	dest := flag.String("d", "", "Dest MultiAddr String")
-	help := flag.Bool("help", false, "Display Help")
-	debug := flag.Bool("debug", false, "Debug generated same node id on every execution.")
-
-	flag.Parse()
-
-	if *help {
-		fmt.Printf("This program demonstrates a simple p2p chat application using libp2p\n\n")
-		fmt.Printf("Usage: Run './chat -sp <SOURCE_PORT>' where <SOURCE_PORT> can be any port number. Now run './chat -d <MULTIADDR>' where <MULTIADDR> is multiaddress of previous listener host.\n")
-
-		os.Exit(0)
-	}
+func loadPrivKey(filename string) crypto.PrivKey {
 
 	var keyLoaded = false
 	var b []byte
 	var prvKey crypto.PrivKey
-	s, err := ioutil.ReadFile("key")
+	s, err := ioutil.ReadFile(filename)
 	if (err == nil) {
 		b, err = base64.StdEncoding.DecodeString(string(s))
 		if (err == nil) {
@@ -163,14 +154,7 @@ func main() {
 		fmt.Println("Generating new private key ...")
 		// If debug is enabled used constant random source else cryptographic randomness.
 		var r io.Reader
-		if *debug {
-			// Constant random source. This will always generate the same host ID on multiple execution.
-			// Don't do this in production code.
-			r = mrand.New(mrand.NewSource(int64(*sourcePort)))
-		} else {
-			fmt.Println("Using random source rand.Reader ...")
-			r = rand.Reader
-		}
+		r = rand.Reader
 
 		// Creates a new RSA key pair for this host
 		prvKey, _, err = crypto.GenerateKeyPairWithReader(crypto.RSA, 2048, r)
@@ -179,18 +163,24 @@ func main() {
 			panic(err)
 		}
 
-		ioutil.WriteFile("key", []byte(base64.StdEncoding.EncodeToString(b)), 0600)
+		ioutil.WriteFile(filename, []byte(base64.StdEncoding.EncodeToString(b)), 0600)
 
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	// 0.0.0.0 will listen on any interface device
-	sourceMultiAddr, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", *sourcePort))
+	return prvKey
+}
 
-	// libp2p.New constructs a new libp2p Host.
-	// Other options can be added here.
+func main() {
+
+	masterID := "QmZ2X3v8b4nrtkD63JsnGyCSDJ4rCCNv3vgznyNVJDW8A6"
+	master := "/ip4/178.128.12.42/tcp/8964/ipfs/QmZ2X3v8b4nrtkD63JsnGyCSDJ4rCCNv3vgznyNVJDW8A6"
+	sourcePort := flag.Int("sp", 8964, "Source port number")
+	flag.Parse()
+	prvKey := loadPrivKey("key")
+	sourceMultiAddr, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", *sourcePort))
 	host, err := libp2p.New(
 		context.Background(),
 		libp2p.ListenAddrs(sourceMultiAddr),
@@ -201,14 +191,9 @@ func main() {
 		panic(err)
 	}
 
-	if *dest == "" {
-		// Set a function as stream handler.
-		// This function  is called when a peer initiate a connection and starts a stream with this peer.
-		// Only applicable on the receiving side.
+	if host.ID().Pretty() == masterID {
+		fmt.Println("This is master", master)
 		host.SetStreamHandler("/chat/1.0.0", handleStream)
-
-		fmt.Printf("Run './chat -d /ip4/127.0.0.1/tcp/%d/ipfs/%s' on another console.\n You can replace 127.0.0.1 with public IP as well.\n", *sourcePort, host.ID().Pretty())
-		fmt.Printf("\nWaiting for incoming connection\n\n")
 		for {
 			time.Sleep(3 * time.Second)
 			for i,p := range host.Peerstore().Peers() {
@@ -223,7 +208,7 @@ func main() {
 
 		// Add destination peer multiaddress in the peerstore.
 		// This will be used during connection and stream creation by libp2p.
-		peerID := addAddrToPeerstore(host, *dest)
+		peerID := addAddrToPeerstore(host, master)
 
 		fmt.Println("This node's multiaddress: ")
 		// IP will be 0.0.0.0 (listen on any interface) and port will be 0 (choose one for me).
