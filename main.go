@@ -152,11 +152,8 @@ func loadPrivKey(filename string) crypto.PrivKey {
 
 	if (!keyLoaded) {
 		fmt.Println("Generating new private key ...")
-		// If debug is enabled used constant random source else cryptographic randomness.
 		var r io.Reader
 		r = rand.Reader
-
-		// Creates a new RSA key pair for this host
 		prvKey, _, err = crypto.GenerateKeyPairWithReader(crypto.RSA, 2048, r)
 		b, err := crypto.MarshalPrivateKey(prvKey)
 		if err != nil {
@@ -175,8 +172,8 @@ func loadPrivKey(filename string) crypto.PrivKey {
 
 func main() {
 
-	masterID := "QmZ2X3v8b4nrtkD63JsnGyCSDJ4rCCNv3vgznyNVJDW8A6"
-	master := "/ip4/178.128.12.42/tcp/8964/ipfs/QmZ2X3v8b4nrtkD63JsnGyCSDJ4rCCNv3vgznyNVJDW8A6"
+	masterID := "QmSmz6YKmwWnMFqz1ugvm1Ban5sco8bor5VW7nUVUYdLyr"
+	master := "/ip4/178.128.12.42/tcp/8964/ipfs/QmSmz6YKmwWnMFqz1ugvm1Ban5sco8bor5VW7nUVUYdLyr"
 	sourcePort := flag.Int("sp", 8964, "Source port number")
 	flag.Parse()
 	prvKey := loadPrivKey("key")
