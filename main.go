@@ -24,7 +24,7 @@
 *
  */
 
-package main
+package bleedingheart
 
 import (
 	"bufio"
@@ -188,26 +188,18 @@ func main() {
 		panic(err)
 	}
 
+	fmt.Println("--- start ----")
 	if host.ID().Pretty() == masterID {
 		fmt.Println("This is master", master)
 		host.SetStreamHandler("/chat/1.0.0", handleStream)
-		for {
-			time.Sleep(3 * time.Second)
-			for i,p := range host.Peerstore().Peers() {
-				fmt.Println(i,p, host.Peerstore().PeerInfo(p))
-			}
-
-		}
-		// Hang forever
-		<-make(chan struct{})
-
+		dump(host)
 	} else {
 
 		// Add destination peer multiaddress in the peerstore.
 		// This will be used during connection and stream creation by libp2p.
 		peerID := addAddrToPeerstore(host, master)
 
-		fmt.Println("This node's multiaddress: ")
+		fmt.Printf("My address: ")
 		// IP will be 0.0.0.0 (listen on any interface) and port will be 0 (choose one for me).
 		// Although this node will not listen for any connection. It will just initiate a connect with
 		// one of its peer and use that stream to communicate.
@@ -218,10 +210,11 @@ func main() {
 		s, err := host.NewStream(context.Background(), peerID, "/chat/1.0.0")
 
 		if err != nil {
-			// panic(err)
+			fmt.Println("NewStream failed. Trying Connect...")
 			fmt.Println(err)
 
 			if err := host.Connect(context.Background(), host.Peerstore().PeerInfo(peerID)); err != nil {
+				fmt.Println("Connect failed:")
 				fmt.Println(err)
 			} else {
 				fmt.Println("Connected to ", peerID)
@@ -234,19 +227,20 @@ func main() {
 			// Create a thread to read and write data.
 			go writeData(rw)
 			go readData(rw)
+
+			dump(host)
 		}
+	}
+}
 
-
-
-		for {
-			time.Sleep(3 * time.Second)
-			for i,p := range host.Peerstore().Peers() {
-				fmt.Println(i,p, host.Peerstore().PeerInfo(p))
+func dump (h host.Host) {
+	for {
+		time.Sleep(3 * time.Second)
+		for i,p := range h.Peerstore().Peers() {
+			fmt.Println(i,p, h.Peerstore().Addrs(p))
+			for i,a := range h.Peerstore().Addrs(p) {
+				fmt.Println(i, a)
 			}
-
 		}
-		// Hang forever.
-		select {}
-
 	}
 }

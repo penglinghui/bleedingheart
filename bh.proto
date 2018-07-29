@@ -1,0 +1,16 @@
+syntax = "proto2";
+package bleedingheart;
+
+message BhMessage {
+	enum BhMessageType {
+		BH_PEERS = 1;
+	};
+
+	required BhMessageType type = 1;
+	message Peer {
+		required string id = 1;
+		repeated bytes addrs = 2;
+	};
+	repeated Peer peers = 2;
+};
+
