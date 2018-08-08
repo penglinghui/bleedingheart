@@ -27,7 +27,6 @@
 package bleedingheart
 
 import (
-	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
@@ -36,9 +35,10 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"os"
 	"time"
 
+	ggio "github.com/gogo/protobuf/io"
+	ctxio "github.com/jbenet/go-context/io"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-crypto"
 	"github.com/libp2p/go-libp2p-host"
@@ -90,17 +90,89 @@ func addAddrToPeerstore(h host.Host, addr string) peer.ID {
 	return peerid
 }
 
+func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w ggio.WriteCloser) {
+
+	//mPeer := s.Conn().RemotePeer()
+
+	for {
+		pmes := new(BhMessage)
+		switch err := r.ReadMsg(pmes); err {
+		case io.EOF:
+			s.Close()
+			return
+		case nil:
+		default:
+			s.Reset()
+			return
+		}
+
+		fmt.Println(pmes.GetType)
+
+		// TODO: update the peer on valid msgs only
+
+/*		handler := handlerForMsgType(pmes.GetType())
+		if handler == nil {
+			s.Reset()
+			return
+		}
+
+		rpmes, err := handler(ctx, mPeer, pmes)
+		if err != nil {
+			s.Reset()
+			return
+		}
+
+		if rpmes == nil {
+			continue
+		}
+
+		if err := w.WriteMsg(rpmes); err != nil {
+			s.Reset()
+			return
+		}
+		*/
+	}
+}
+
 func handleStream(s net.Stream) {
 	log.Println("Got a new stream!")
-
-	// Create a buffer stream for non blocking read and write.
-	rw := bufio.NewReadWriter(bufio.NewReader(s), bufio.NewWriter(s))
-
-	go readData(rw)
-	go writeData(rw)
-
-	// stream 's' will stay open until you close it (or the other side closes it).
+	ctx := context.Background() // TODO change to some timeout
+	cr := ctxio.NewReader(ctx, s)
+	cw := ctxio.NewWriter(ctx, s)
+	r := ggio.NewDelimitedReader(cr, net.MessageSizeMax)
+	w := ggio.NewDelimitedWriter(cw)
+	go handleNewMessage(ctx, s, r, w)
 }
+
+/*
+function sendRequest(ctx context.Context, p peer.ID, pmes *BHMessage) (*BHMessage, error)
+{
+	ms, err := messageSenderForPeer(p)
+	if err != nil {
+		return nil, err
+	}
+
+	rpmes, err := ms.SendRequest(ctx, pmes)
+	if err != nil {
+		return nil, err
+	}
+
+	return rpmes, nil
+}
+
+function sendMessage(ctx, context.Context, p peer.ID, pmes *BHMessage) error {
+	ms, err := messageSenderForPeer(p)
+	if err != nil {
+		return err
+	}
+
+	if err := ms.SendMessage(ctx, pmes); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func readData(rw *bufio.ReadWriter) {
 	for {
 		str, _ := rw.ReadString('\n')
@@ -133,7 +205,7 @@ func writeData(rw *bufio.ReadWriter) {
 	}
 
 }
-
+*/
 func loadPrivKey(filename string) crypto.PrivKey {
 
 	var keyLoaded = false
@@ -192,7 +264,7 @@ func main() {
 	if host.ID().Pretty() == masterID {
 		fmt.Println("This is master", master)
 		host.SetStreamHandler("/chat/1.0.0", handleStream)
-		dump(host)
+		dumploop(host)
 	} else {
 
 		// Add destination peer multiaddress in the peerstore.
@@ -210,37 +282,47 @@ func main() {
 		s, err := host.NewStream(context.Background(), peerID, "/chat/1.0.0")
 
 		if err != nil {
-			fmt.Println("NewStream failed. Trying Connect...")
+
 			fmt.Println(err)
 
-			if err := host.Connect(context.Background(), host.Peerstore().PeerInfo(peerID)); err != nil {
-				fmt.Println("Connect failed:")
-				fmt.Println(err)
-			} else {
-				fmt.Println("Connected to ", peerID)
-			}
 		} else {
 
-			// Create a buffered stream so that read and writes are non blocking.
-			rw := bufio.NewReadWriter(bufio.NewReader(s), bufio.NewWriter(s))
+			// Send ping message to server
+			ctx := context.Background() // TODO change to some timeout
+			cr := ctxio.NewReader(ctx, s)
+			cw := ctxio.NewWriter(ctx, s)
+			r := ggio.NewDelimitedReader(cr, net.MessageSizeMax)
+			w := ggio.NewDelimitedWriter(cw)
+			go handleNewMessage(ctx, s, r, w)
 
-			// Create a thread to read and write data.
-			go writeData(rw)
-			go readData(rw)
-
-			dump(host)
+			for {
+				time.Sleep(3 * time.Second)
+				t := BhMessage_BH_PEERS
+				pmes := &BhMessage {
+					Type: &t,
+				}
+				fmt.Println("Send BH_PEERS message to server")
+				w.WriteMsg(pmes)
+				// dump(host)
+			}
 		}
 	}
 }
 
+
+
 func dump (h host.Host) {
+	for i,p := range h.Peerstore().Peers() {
+		fmt.Println(i,p, h.Peerstore().Addrs(p))
+		for i,a := range h.Peerstore().Addrs(p) {
+			fmt.Println(i, a)
+		}
+	}
+}
+
+func dumploop (h host.Host) {
 	for {
 		time.Sleep(3 * time.Second)
-		for i,p := range h.Peerstore().Peers() {
-			fmt.Println(i,p, h.Peerstore().Addrs(p))
-			for i,a := range h.Peerstore().Addrs(p) {
-				fmt.Println(i, a)
-			}
-		}
+		dump(h)
 	}
 }
