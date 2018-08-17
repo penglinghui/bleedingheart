@@ -247,7 +247,7 @@ func loadPrivKey(filename string) crypto.PrivKey {
 func main() {
 
 	masterID := "QmSAdkJ5ZvLz4syZMox6WK4RUk1xVTQ56HLVkWDqctoiFR"
-	master := "/ip4/178.128.12.42/tcp/5564/ipfs/"+masterID
+	master := "/ip4/142.93.16.125/tcp/5564/ipfs/"+masterID
 	sourcePort := flag.Int("sp", 5564, "Source port number")
 	flag.Parse()
 	prvKey := loadPrivKey("key")
