@@ -336,7 +336,12 @@ func dumploop (h host.Host) {
 		}
 
 		if (input == "l\n") {
-			fmt.Println("List")
+			dump(h)
+			continue
+		}
+		if (input == "q\n") {
+			fmt.Println("Quiting ...")
+			os.Exit(0)
 		} else {
 			fmt.Print("Unknown command: "+input)
 		}
