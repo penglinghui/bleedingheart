@@ -24,9 +24,10 @@
 *
  */
 
-package bleedingheart
+package main
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
@@ -35,6 +36,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"os"
 	"time"
 
 	ggio "github.com/gogo/protobuf/io"
@@ -244,9 +246,9 @@ func loadPrivKey(filename string) crypto.PrivKey {
 
 func main() {
 
-	masterID := "QmSmz6YKmwWnMFqz1ugvm1Ban5sco8bor5VW7nUVUYdLyr"
-	master := "/ip4/178.128.12.42/tcp/8964/ipfs/QmSmz6YKmwWnMFqz1ugvm1Ban5sco8bor5VW7nUVUYdLyr"
-	sourcePort := flag.Int("sp", 8964, "Source port number")
+	masterID := "QmSAdkJ5ZvLz4syZMox6WK4RUk1xVTQ56HLVkWDqctoiFR"
+	master := "/ip4/178.128.12.42/tcp/8964/ipfs/"+masterID
+	sourcePort := flag.Int("sp", 5564, "Source port number")
 	flag.Parse()
 	prvKey := loadPrivKey("key")
 	sourceMultiAddr, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", *sourcePort))
@@ -321,8 +323,23 @@ func dump (h host.Host) {
 }
 
 func dumploop (h host.Host) {
+//	for {
+//		time.Sleep(3 * time.Second)
+//		dump(h)
+//	}
+
+	stdReader := bufio.NewReader(os.Stdin)
 	for {
-		time.Sleep(3 * time.Second)
-		dump(h)
+		input, err := stdReader.ReadString('\n')
+		if err != nil {
+			panic(err)
+		}
+
+		if (input == "l\n") {
+			fmt.Println("List")
+		} else {
+			fmt.Print("Unknown command: "+input)
+		}
 	}
 }
+
