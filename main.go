@@ -50,6 +50,8 @@ import (
 	"github.com/multiformats/go-multiaddr"
 )
 
+var g_ThisHost host.Host
+
 func check(err error) {
 	if (err != nil) {
 		panic(err)
@@ -114,11 +116,23 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 			rpmes := &BhMessage {
 					Type: &t,
 			}
+			rpmes.Peers = PeerInfosToBhPeers(
+					peerstore.PeerInfos(
+						g_ThisHost.Peerstore(),
+						g_ThisHost.Peerstore().Peers()))
 			fmt.Println("Send BH_PEERS message back")
 			if err := w.WriteMsg(rpmes); err != nil {
 				s.Reset()
 				return
 			}
+			continue
+		}
+		if (BhMessage_BH_PEERS == pmes.GetType()) {
+			peers := BhPeersToPeerInfos(pmes.GetPeers())
+			for i,p := range peers {
+				fmt.Println(i, p.ID, p.Addrs)
+			}
+			continue
 		}
 
 		// TODO: update the peer on valid msgs only
@@ -268,6 +282,7 @@ func main() {
 		libp2p.ListenAddrs(sourceMultiAddr),
 		libp2p.Identity(prvKey),
 	)
+	g_ThisHost = host
 
 	if err != nil {
 		panic(err)
