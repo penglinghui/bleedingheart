@@ -1,9 +1,10 @@
 syntax = "proto2";
-package bleedingheart;
+package main;
 
 message BhMessage {
 	enum BhMessageType {
-		BH_PEERS = 1;
+		BH_PING = 1;
+		BH_PEERS = 2;
 	};
 
 	required BhMessageType type = 1;

@@ -108,7 +108,18 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 			return
 		}
 
-		fmt.Println(pmes.GetType)
+		fmt.Println(pmes.GetType())
+		if (BhMessage_BH_PING == pmes.GetType()) {
+			t := BhMessage_BH_PEERS
+			rpmes := &BhMessage {
+					Type: &t,
+			}
+			fmt.Println("Send BH_PEERS message back")
+			if err := w.WriteMsg(rpmes); err != nil {
+				s.Reset()
+				return
+			}
+		}
 
 		// TODO: update the peer on valid msgs only
 
@@ -299,11 +310,11 @@ func main() {
 
 			for {
 				time.Sleep(3 * time.Second)
-				t := BhMessage_BH_PEERS
+				t := BhMessage_BH_PING
 				pmes := &BhMessage {
 					Type: &t,
 				}
-				fmt.Println("Send BH_PEERS message to server")
+				fmt.Println("Sending BH_PING message to server")
 				w.WriteMsg(pmes)
 				// dump(host)
 			}

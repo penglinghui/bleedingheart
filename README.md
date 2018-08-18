@@ -5,3 +5,7 @@ This piece of software is designed to run under the cover on a user's computer. 
 With BH, we aim to build a large scale P2P content sharing network inside mainland China that is:
 * censorship resistant
 * scalable
+
+Dependencies:
+
+apt install golang-goprotobuf-dev
