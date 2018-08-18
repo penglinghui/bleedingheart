@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/libp2p/go-libp2p-peer"
 	"github.com/libp2p/go-libp2p-peerstore"
 	ma "github.com/multiformats/go-multiaddr"
@@ -10,10 +11,13 @@ func PeerInfoToBhPeer(p peerstore.PeerInfo) *BhMessage_Peer {
 	m := new(BhMessage_Peer)
 	m.Addrs = make([][]byte, len(p.Addrs))
 	for i, maddr := range p.Addrs {
+		fmt.Print(i, maddr)
 		m.Addrs[i] = maddr.Bytes()
 	}
-	s := string(p.ID)
-	m.Id = &s
+	s := StringToBytes(string(p.ID))
+	fmt.Println("p.ID: ", p.ID)
+	fmt.Println("s: ", s)
+	m.Id = s
 	return m
 }
 

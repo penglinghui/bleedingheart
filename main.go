@@ -122,8 +122,9 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 						g_ThisHost.Peerstore().Peers()))
 			fmt.Println("Send BH_PEERS message back")
 			if err := w.WriteMsg(rpmes); err != nil {
-				s.Reset()
-				return
+				fmt.Println("Failed", err);
+				//s.Reset()
+				continue
 			}
 			continue
 		}
