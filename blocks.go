@@ -6,13 +6,7 @@ import (
 	"io"
 )
 
-type BlockList []Block
-
-type Block struct {
-	Offset uint64
-	Length uint32
-	Hash   []byte
-}
+type BlockList []*BhBlock
 
 // Blocks returns the blockwise hash of the reader.
 func Blocks(r io.Reader, blocksize int) (BlockList, error) {
@@ -30,12 +24,14 @@ func Blocks(r io.Reader, blocksize int) (BlockList, error) {
 			break
 		}
 
-		b := Block{
-			Offset: offset,
-			Length: uint32(n),
+		length := uint32(n)
+		off := offset
+		b := BhBlock{
+			Offset: &off,
+			Length: &length,
 			Hash:   hf.Sum(nil),
 		}
-		blocks = append(blocks, b)
+		blocks = append(blocks, &b)
 		offset += uint64(n)
 	}
 

@@ -2,15 +2,16 @@ syntax = "proto2";
 package main;
 
 message BhBlock {
-	required int64 offset = 1;
-	required int64 length = 2;
+	required uint64 offset = 1;
+	required uint32 length = 2;
 	required bytes hash =3;
 }
 
 message BhFile {
 	required bytes name = 1;
-	required int64 modified = 2;
-	repeated BhBlock blocks = 3;
+	required uint32 flags = 2;
+	required int64 modified = 3;
+	repeated BhBlock blocks = 4;
 }
 
 message BhMessage {

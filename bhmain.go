@@ -290,6 +290,8 @@ func bhmain() {
 	if err != nil {
 		panic(err)
 	}
+	InitModel("/tmp/bh")
+	g_Model.Refresh()
 
 	fmt.Println("--- start ----")
 	if host.ID().Pretty() == masterID {
@@ -366,6 +368,14 @@ func dumploop (h host.Host) {
 
 		if (input == "l\n") {
 			dump(h)
+			continue
+		}
+		if (input == "r\n") {
+			g_Model.Refresh()
+			continue
+		}
+		if (input == "d\n") {
+			g_Model.Dump()
 			continue
 		}
 		if (input == "q\n") {
