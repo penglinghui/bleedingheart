@@ -14,9 +14,8 @@ type Model struct {
 	need	map[string]bool
 }
 
-var g_Model *Model
-
 func InitModel(dir string) {
+	ensureDir(confDir)
 	g_Model = &Model{
 		dir:	dir,
 		global: make(map[string]*BhFile),

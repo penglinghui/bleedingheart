@@ -37,6 +37,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"time"
 
 	ggio "github.com/gogo/protobuf/io"
@@ -50,13 +51,15 @@ import (
 	"github.com/multiformats/go-multiaddr"
 )
 
-var g_ThisHost host.Host
+const (
+	confDirName = ".bh"
+)
 
-func check(err error) {
-	if (err != nil) {
-		panic(err)
-	}
-}
+var (
+	confDir		= path.Join(getHomeDir(), confDirName)
+	g_ThisHost	host.Host
+	g_Model		*Model
+)
 
 /*
 * addAddrToPeerstore parses a peer multiaddress and adds
@@ -250,10 +253,11 @@ func loadPrivKey(filename string) crypto.PrivKey {
 				keyLoaded = true
 			}
 		}
+		fmt.Println("Loaded private key file: ", filename)
 	}
 
 	if (!keyLoaded) {
-		fmt.Println("Generating new private key ...")
+		fmt.Println("Generating new private key file: ", filename)
 		var r io.Reader
 		r = rand.Reader
 		prvKey, _, err = crypto.GenerateKeyPairWithReader(crypto.RSA, 2048, r)
@@ -278,7 +282,8 @@ func bhmain() {
 	master := "/ip4/142.93.16.125/tcp/5564/ipfs/"+masterID
 	sourcePort := flag.Int("sp", 5564, "Source port number")
 	flag.Parse()
-	prvKey := loadPrivKey("key")
+	ensureDir(confDir)
+	prvKey := loadPrivKey(path.Join(confDir, "key"))
 	sourceMultiAddr, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", *sourcePort))
 	host, err := libp2p.New(
 		context.Background(),
@@ -290,7 +295,9 @@ func bhmain() {
 	if err != nil {
 		panic(err)
 	}
-	InitModel("/tmp/bh")
+	root := path.Join(confDir, "bh")
+	ensureDir(root)
+	InitModel(root)
 	g_Model.Refresh()
 
 	fmt.Println("--- start ----")
@@ -387,3 +394,21 @@ func dumploop (h host.Host) {
 	}
 }
 
+func ensureDir(dir string) {
+	fi, err := os.Stat(dir)
+	if os.IsNotExist(err) {
+		err := os.MkdirAll(dir, 0700)
+		fatalErr(err)
+	} else if fi.Mode()&0077 != 0 {
+		err := os.Chmod(dir, 0700)
+		fatalErr(err)
+	}
+}
+
+func getHomeDir() string {
+	home := os.Getenv("HOME")
+	if home == "" {
+		fatalln("No home dir?")
+	}
+	return home
+}
