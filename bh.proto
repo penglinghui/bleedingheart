@@ -1,6 +1,18 @@
 syntax = "proto2";
 package main;
 
+message BhBlock {
+	required int64 offset = 1;
+	required int64 length = 2;
+	required bytes hash =3;
+}
+
+message BhFile {
+	required bytes name = 1;
+	required int64 modified = 2;
+	repeated BhBlock blocks = 3;
+}
+
 message BhMessage {
 	enum BhMessageType {
 		BH_PING = 1;
@@ -13,5 +25,6 @@ message BhMessage {
 		repeated bytes addrs = 2;
 	};
 	repeated Peer peers = 2;
+	repeated BhFile files = 3;
 };
 

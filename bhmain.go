@@ -103,10 +103,12 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 		switch err := r.ReadMsg(pmes); err {
 		case io.EOF:
 			s.Close()
+			fmt.Println("Tearing down stream - EOF")
 			return
 		case nil:
 		default:
 			s.Reset()
+			fmt.Println("Tearing down stream - nil")
 			return
 		}
 
