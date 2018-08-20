@@ -59,6 +59,17 @@ func (m *Model) ReplaceLocal(fs []*BhFile) {
 	}
 }
 
+func (m *Model) GetLocalFiles() []*BhFile {
+	m.RLock()
+	defer m.RUnlock()
+
+	var files []*BhFile
+	for f := range m.local {
+		files = append(files, m.local[f])
+	}
+	return files
+}
+
 func (m *Model) Dump() {
 	m.RLock()
 	defer m.RUnlock()

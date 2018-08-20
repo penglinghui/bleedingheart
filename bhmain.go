@@ -38,6 +38,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"runtime"
 	"time"
 
 	ggio "github.com/gogo/protobuf/io"
@@ -127,16 +128,34 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 						g_ThisHost.Peerstore().Peers()))
 			fmt.Println("Send BH_PEERS message back")
 			if err := w.WriteMsg(rpmes); err != nil {
-				fmt.Println("Failed", err);
+				fmt.Println("Failed", err)
 				//s.Reset()
 				continue
 			}
+
+			t1 := BhMessage_BH_INDEX
+			rpmes1 := &BhMessage {
+					Type: &t1,
+				}
+			rpmes1.Files = g_Model.GetLocalFiles()
+			fmt.Println("Send BH_INDEX message back")
+			if err := w.WriteMsg(rpmes1); err != nil {
+				fmt.Println("Failed", err)
+				continue
+			}
+
 			continue
 		}
 		if (BhMessage_BH_PEERS == pmes.GetType()) {
 			peers := BhPeersToPeerInfos(pmes.GetPeers())
 			for i,p := range peers {
 				fmt.Println(i, p.ID, p.Addrs)
+			}
+			continue
+		}
+		if (BhMessage_BH_INDEX == pmes.GetType()) {
+			for _,f := range pmes.GetFiles() {
+				f.Dump()
 			}
 			continue
 		}
@@ -406,9 +425,12 @@ func ensureDir(dir string) {
 }
 
 func getHomeDir() string {
-	home := os.Getenv("HOME")
-	if home == "" {
-		fatalln("No home dir?")
-	}
-	return home
+    if runtime.GOOS == "windows" {
+        home := os.Getenv("HOMEDRIVE") + os.Getenv("HOMEPATH")
+        if home == "" {
+            home = os.Getenv("USERPROFILE")
+        }
+        return home
+    }
+    return os.Getenv("HOME")
 }
