@@ -134,7 +134,6 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 				continue
 			}
 
-			/*
 			t1 := BhMessage_BH_INDEX
 			rpmes1 := &BhMessage {
 					Type: &t1,
@@ -145,7 +144,6 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 				fmt.Println("Failed", err)
 				continue
 			}
-			*/
 			continue
 		}
 		if (BhMessage_BH_PEERS == pmes.GetType()) {
