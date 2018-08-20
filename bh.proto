@@ -26,7 +26,7 @@ message BhMessage {
 		required bytes id = 1;
 		repeated bytes addrs = 2;
 	};
-	required int64 updated = 2; // master index timestamp
+	optional int64 updated = 2; // master index timestamp
 	repeated Peer peers = 3;
 	repeated BhFile files = 4;
 };

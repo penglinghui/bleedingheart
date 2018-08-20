@@ -104,6 +104,7 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 
 	for {
 		pmes := new(BhMessage)
+		fmt.Println("Waiting for new message...")
 		switch err := r.ReadMsg(pmes); err {
 		case io.EOF:
 			s.Close()
@@ -133,6 +134,7 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 				continue
 			}
 
+			/*
 			t1 := BhMessage_BH_INDEX
 			rpmes1 := &BhMessage {
 					Type: &t1,
@@ -143,7 +145,7 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 				fmt.Println("Failed", err)
 				continue
 			}
-
+			*/
 			continue
 		}
 		if (BhMessage_BH_PEERS == pmes.GetType()) {
