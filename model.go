@@ -96,8 +96,19 @@ func (m *Model) UpdateIndex(fs []*BhFile) {
 	if updated {
 		fmt.Println("m.global updated")
 		m.global = newGlobal
-		// go m.boradcastIndex()
+		m.recomputeNeed()
 	}
+}
+
+func (m *Model) recomputeNeed() {
+	m.need = make(map[string]bool)
+	for n, gf := range m.global {
+		lf, ok := m.local[n]
+		if !ok || *gf.Modified > *lf.Modified {
+			m.need[n] = true
+		}
+	}
+	fmt.Println(len(m.need), "files need update")
 }
 
 func (m *Model) Dump() {
