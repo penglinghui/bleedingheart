@@ -327,7 +327,9 @@ func pingLoop() {
 				Type: &t,
 			}
 			fmt.Println("Sending BH_PING message to server")
-			w.WriteMsg(pmes)
+			if err := w.WriteMsg(pmes); err != nil {
+				fmt.Println(err)
+			}
 			time.Sleep(3 * time.Second)
 		}
 	}
