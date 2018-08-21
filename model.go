@@ -81,8 +81,8 @@ func (m *Model) UpdateIndex(fs []*BhFile) {
 		newGlobal[BytesToString(f.Name)] = f
 		ef := m.global[BytesToString(f.Name)]
 		if ef != nil {
-			if ef.Modified != f.Modified {
-				fmt.Println("...modified ", ef.Modified, " != ", f.Modified);
+			if *ef.Modified != *f.Modified {
+				fmt.Println("...modified ", *ef.Modified, " != ", *f.Modified);
 				updated = true
 			}
 		}
