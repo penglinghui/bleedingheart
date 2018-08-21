@@ -82,12 +82,14 @@ func (m *Model) UpdateIndex(fs []*BhFile) {
 		ef := m.global[BytesToString(f.Name)]
 		if ef != nil {
 			if ef.Modified != f.Modified {
+				fmt.Println("...modified");
 				updated = true
 			}
 		}
 	}
 
 	if len(newGlobal) != len(m.global) {
+		fmt.Println(len(newGlobal), "!=", len(m.global))
 		updated = true
 	}
 
