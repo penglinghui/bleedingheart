@@ -312,7 +312,7 @@ func pingLoop() {
 
 		if err != nil {
 			fmt.Println(err)
-			time.Sleep(5)
+			time.Sleep(5 * time.Second)
 			continue
 		} else {
 			// Send ping message to server
