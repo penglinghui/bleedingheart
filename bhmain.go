@@ -157,6 +157,7 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 			for _,f := range pmes.GetFiles() {
 				f.Dump()
 			}
+			g_Model.UpdateIndex(pmes.GetFiles())
 			continue
 		}
 

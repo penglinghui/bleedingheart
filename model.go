@@ -70,6 +70,34 @@ func (m *Model) GetLocalFiles() []*BhFile {
 	return files
 }
 
+func (m *Model) UpdateIndex(fs []*BhFile) {
+	m.Lock()
+	defer m.Unlock()
+
+	var updated bool
+	var newGlobal = make(map[string]*BhFile)
+	for _, f := range fs {
+		fmt.Println("File:", BytesToString(f.Name))
+		newGlobal[BytesToString(f.Name)] = f
+		ef := m.global[BytesToString(f.Name)]
+		if ef != nil {
+			if ef.Modified != f.Modified {
+				updated = true
+			}
+		}
+	}
+
+	if len(newGlobal) != len(m.global) {
+		updated = true
+	}
+
+	if updated {
+		fmt.Println("m.global updated")
+		m.global = newGlobal
+		// go m.boradcastIndex()
+	}
+}
+
 func (m *Model) Dump() {
 	m.RLock()
 	defer m.RUnlock()
