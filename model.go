@@ -106,7 +106,7 @@ func (m *Model) Dump() {
 
 	fmt.Println("---------------- global ----------------")
 	for f := range m.global {
-		m.local[f].Dump()
+		m.global[f].Dump()
 	}
 	fmt.Println("---------------- local ----------------")
 	for f := range m.local {
