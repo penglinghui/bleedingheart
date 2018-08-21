@@ -104,6 +104,11 @@ func (m *Model) Dump() {
 	m.RLock()
 	defer m.RUnlock()
 
+	fmt.Println("---------------- global ----------------")
+	for f := range m.global {
+		m.local[f].Dump()
+	}
+	fmt.Println("---------------- local ----------------")
 	for f := range m.local {
 		m.local[f].Dump()
 	}

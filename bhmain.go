@@ -54,11 +54,14 @@ import (
 
 const (
 	confDirName = ".bh"
+	masterID = "QmSAdkJ5ZvLz4syZMox6WK4RUk1xVTQ56HLVkWDqctoiFR"
+	master = "/ip4/142.93.16.125/tcp/5564/ipfs/"+masterID
 )
 
 var (
 	confDir		= path.Join(getHomeDir(), confDirName)
 	g_ThisHost	host.Host
+	g_MyAddr        multiaddr.Multiaddr
 	g_Model		*Model
 )
 
@@ -296,10 +299,42 @@ func loadPrivKey(filename string) crypto.PrivKey {
 	return prvKey
 }
 
+func pingLoop() {
+	// Add destination peer multiaddress in the peerstore.
+	// This will be used during connection and stream creation by libp2p.
+	peerID := addAddrToPeerstore(g_ThisHost, master)
+
+	// Start a stream with peer with peer Id: 'peerId'.
+	// Multiaddress of the destination peer is fetched from the peerstore using 'peerId'.
+	s, err := g_ThisHost.NewStream(context.Background(), peerID, "/chat/1.0.0")
+
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	} else {
+		// Send ping message to server
+		ctx := context.Background() // TODO change to some timeout
+		cr := ctxio.NewReader(ctx, s)
+		cw := ctxio.NewWriter(ctx, s)
+		r := ggio.NewDelimitedReader(cr, net.MessageSizeMax)
+		w := ggio.NewDelimitedWriter(cw)
+		go handleNewMessage(ctx, s, r, w)
+
+
+		for {
+			t := BhMessage_BH_PING
+			pmes := &BhMessage {
+				Type: &t,
+			}
+			fmt.Println("Sending BH_PING message to server")
+			w.WriteMsg(pmes)
+			time.Sleep(3 * time.Second)
+		}
+	}
+}
+
 func bhmain() {
 
-	masterID := "QmSAdkJ5ZvLz4syZMox6WK4RUk1xVTQ56HLVkWDqctoiFR"
-	master := "/ip4/142.93.16.125/tcp/5564/ipfs/"+masterID
 	sourcePort := flag.Int("sp", 5564, "Source port number")
 	flag.Parse()
 	ensureDir(confDir)
@@ -311,6 +346,7 @@ func bhmain() {
 		libp2p.Identity(prvKey),
 	)
 	g_ThisHost = host
+	g_MyAddr = sourceMultiAddr
 
 	if err != nil {
 		panic(err)
@@ -324,54 +360,20 @@ func bhmain() {
 	if host.ID().Pretty() == masterID {
 		fmt.Println("This is master", master)
 		host.SetStreamHandler("/chat/1.0.0", handleStream)
-		dumploop(host)
+		cmdLoop()
 	} else {
-
-		// Add destination peer multiaddress in the peerstore.
-		// This will be used during connection and stream creation by libp2p.
-		peerID := addAddrToPeerstore(host, master)
-
 		fmt.Printf("My address: ")
 		// IP will be 0.0.0.0 (listen on any interface) and port will be 0 (choose one for me).
 		// Although this node will not listen for any connection. It will just initiate a connect with
 		// one of its peer and use that stream to communicate.
-		fmt.Printf("%s/ipfs/%s\n", sourceMultiAddr, host.ID().Pretty())
+		fmt.Printf("%s/ipfs/%s\n", g_MyAddr, host.ID().Pretty())
 
-		// Start a stream with peer with peer Id: 'peerId'.
-		// Multiaddress of the destination peer is fetched from the peerstore using 'peerId'.
-		s, err := host.NewStream(context.Background(), peerID, "/chat/1.0.0")
-
-		if err != nil {
-
-			fmt.Println(err)
-
-		} else {
-
-			// Send ping message to server
-			ctx := context.Background() // TODO change to some timeout
-			cr := ctxio.NewReader(ctx, s)
-			cw := ctxio.NewWriter(ctx, s)
-			r := ggio.NewDelimitedReader(cr, net.MessageSizeMax)
-			w := ggio.NewDelimitedWriter(cw)
-			go handleNewMessage(ctx, s, r, w)
-
-			for {
-				time.Sleep(3 * time.Second)
-				t := BhMessage_BH_PING
-				pmes := &BhMessage {
-					Type: &t,
-				}
-				fmt.Println("Sending BH_PING message to server")
-				w.WriteMsg(pmes)
-				// dump(host)
-			}
-		}
+		go pingLoop()
+		cmdLoop()
 	}
 }
 
-
-
-func dump (h host.Host) {
+func dumpHost (h host.Host) {
 	for i,p := range h.Peerstore().Peers() {
 		fmt.Println(i,p, h.Peerstore().Addrs(p))
 		for i,a := range h.Peerstore().Addrs(p) {
@@ -380,11 +382,7 @@ func dump (h host.Host) {
 	}
 }
 
-func dumploop (h host.Host) {
-//	for {
-//		time.Sleep(3 * time.Second)
-//		dump(h)
-//	}
+func cmdLoop () {
 
 	stdReader := bufio.NewReader(os.Stdin)
 	for {
@@ -394,7 +392,7 @@ func dumploop (h host.Host) {
 		}
 
 		if (input == "l\n") {
-			dump(h)
+			dumpHost(g_ThisHost)
 			continue
 		}
 		if (input == "r\n") {

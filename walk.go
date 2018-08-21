@@ -11,7 +11,7 @@ import (
 const BlockSize = 1024 * 1024
 
 func (f *BhFile) Dump() {
-	fmt.Printf("%s\n", BytesToString(f.Name))
+	fmt.Printf("%s %d\n", BytesToString(f.Name), *f.Modified)
 	for _, b := range f.Blocks {
 		fmt.Printf("  %dB @ %d: %x\n", *b.Length, *b.Offset, b.Hash)
 	}
