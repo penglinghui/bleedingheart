@@ -304,33 +304,38 @@ func pingLoop() {
 	// This will be used during connection and stream creation by libp2p.
 	peerID := addAddrToPeerstore(g_ThisHost, master)
 
-	// Start a stream with peer with peer Id: 'peerId'.
-	// Multiaddress of the destination peer is fetched from the peerstore using 'peerId'.
-	s, err := g_ThisHost.NewStream(context.Background(), peerID, "/chat/1.0.0")
+	for {
+		// Start a stream with peer with peer Id: 'peerId'.
+		// Multiaddress of the destination peer is fetched from the peerstore using 'peerId'.
+		fmt.Println("Trying to contact master ...")
+		s, err := g_ThisHost.NewStream(context.Background(), peerID, "/chat/1.0.0")
 
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	} else {
-		// Send ping message to server
-		ctx := context.Background() // TODO change to some timeout
-		cr := ctxio.NewReader(ctx, s)
-		cw := ctxio.NewWriter(ctx, s)
-		r := ggio.NewDelimitedReader(cr, net.MessageSizeMax)
-		w := ggio.NewDelimitedWriter(cw)
-		go handleNewMessage(ctx, s, r, w)
+		if err != nil {
+			fmt.Println(err)
+			time.Sleep(5)
+			continue
+		} else {
+			// Send ping message to server
+			ctx := context.Background() // TODO change to some timeout
+			cr := ctxio.NewReader(ctx, s)
+			cw := ctxio.NewWriter(ctx, s)
+			r := ggio.NewDelimitedReader(cr, net.MessageSizeMax)
+			w := ggio.NewDelimitedWriter(cw)
+			go handleNewMessage(ctx, s, r, w)
 
-
-		for {
-			t := BhMessage_BH_PING
-			pmes := &BhMessage {
-				Type: &t,
+			for {
+				t := BhMessage_BH_PING
+				pmes := &BhMessage {
+					Type: &t,
+				}
+				fmt.Println("Sending BH_PING message to server")
+				if err := w.WriteMsg(pmes); err != nil {
+					fmt.Println(err)
+					break
+				} else {
+					time.Sleep(3 * time.Second)
+				}
 			}
-			fmt.Println("Sending BH_PING message to server")
-			if err := w.WriteMsg(pmes); err != nil {
-				fmt.Println(err)
-			}
-			time.Sleep(3 * time.Second)
 		}
 	}
 }
