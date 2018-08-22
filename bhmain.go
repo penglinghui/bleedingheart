@@ -231,6 +231,7 @@ func NewBhStream(peerID peer.ID) (*BhStream, error) {
 	fmt.Println("NewBhStream ", peerID)
 	s, err := g_ThisHost.NewStream(context.Background(), peerID, "/chat/1.0.0")
 	if err != nil {
+		fmt.Println("g_ThisHost.NewStream failed", err)
 		return nil,err
 	}
 	ctx := context.Background()
@@ -255,6 +256,7 @@ func (m *StreamManager)GetStream(peerID peer.ID) (*BhStream, error) {
 	if bs == nil {
 		bs, err = NewBhStream(peerID)
 		if err != nil {
+			fmt.Println("NewBhStream failed with ", err)
 			return nil,err
 		}
 		m.streamMap[peerID] = bs
@@ -301,7 +303,7 @@ func pingLoop() {
 		}
 		fmt.Println("Sending BH_PING message to server ...")
 		if err := g_StreamManager.SendMessage(peerID, pmes); err != nil {
-			fmt.Println(err)
+			fmt.Println("SendMessage failed with", err)
 		}
 		time.Sleep(3 * time.Second)
 	}
