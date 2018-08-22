@@ -246,21 +246,31 @@ func NewBhStream(peerID peer.ID) (*BhStream, error) {
 	}, nil
 }
 
-func (m *StreamManager)SendMessage(peerID peer.ID, pmes *BhMessage) error {
+func (m *StreamManager)GetStream(peerID peer.ID) (*BhStream, error) {
 	m.Lock()
+	defer m.Unlock()
 	var bs *BhStream
 	var err error
 	bs = m.streamMap[peerID]
 	if bs == nil {
 		bs, err = NewBhStream(peerID)
 		if err != nil {
-			return err
+			return nil,err
 		}
 		m.streamMap[peerID] = bs
 		fmt.Println("Created BHStream: ", bs)
 	}
 	m.Unlock()
+	return bs, nil
+}
+
+func (m *StreamManager)SendMessage(peerID peer.ID, pmes *BhMessage) error {
+	bs,err := m.GetStream(peerID)
+	if err != nil {
+		return err
+	}
 	if err = bs.SendMessage(pmes); err != nil {
+		fmt.Println("SendMessage failed:", err)
 		m.CloseStream(peerID)
 	}
 	return err
@@ -271,7 +281,7 @@ func (m *StreamManager)CloseStream(peerID peer.ID) {
 	bs := m.streamMap[peerID]
 	if bs != nil {
 		fmt.Println("Setting streamMap to nil for peer", peerID)
-		m.streamMap[peerID] = nil
+		delete(m.streamMap,peerID)
 	}
 	m.Unlock()
 }
