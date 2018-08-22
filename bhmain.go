@@ -282,6 +282,7 @@ func (m *StreamManager)CloseStream(peerID peer.ID) {
 	bs := m.streamMap[peerID]
 	if bs != nil {
 		fmt.Println("Setting streamMap to nil for peer", peerID)
+		bs.s.Close()
 		delete(m.streamMap,peerID)
 	}
 	m.Unlock()
