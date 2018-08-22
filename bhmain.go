@@ -248,16 +248,18 @@ func NewBhStream(peerID peer.ID) (*BhStream, error) {
 
 func (m *StreamManager)SendMessage(peerID peer.ID, pmes *BhMessage) error {
 	m.Lock()
-	bs := m.streamMap[peerID]
+	var bs *BhStream
+	var err error
+	bs = m.streamMap[peerID]
 	if bs == nil {
-		bs, err := NewBhStream(peerID)
+		bs, err = NewBhStream(peerID)
 		if err != nil {
 			return err
 		}
 		m.streamMap[peerID] = bs
+		fmt.Println("Created BHStream: ", bs)
 	}
 	m.Unlock()
-	var err error
 	if err = bs.SendMessage(pmes); err != nil {
 		m.CloseStream(peerID)
 	}
