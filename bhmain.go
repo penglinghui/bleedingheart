@@ -260,7 +260,6 @@ func (m *StreamManager)GetStream(peerID peer.ID) (*BhStream, error) {
 		m.streamMap[peerID] = bs
 		fmt.Println("Created BHStream: ", bs)
 	}
-	m.Unlock()
 	return bs, nil
 }
 
