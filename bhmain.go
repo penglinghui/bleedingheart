@@ -39,6 +39,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"sync"
 	"time"
 
 	ggio "github.com/gogo/protobuf/io"
@@ -58,12 +59,62 @@ const (
 	master = "/ip4/142.93.16.125/tcp/5564/ipfs/"+masterID
 )
 
+type BhStream struct {
+	sync.RWMutex
+	s net.Stream
+	r ggio.ReadCloser
+	w ggio.WriteCloser
+}
+
+type StreamManager struct {
+	sync.RWMutex
+	streamMap map[peer.ID] *BhStream
+}
+
 var (
 	confDir		= path.Join(getHomeDir(), confDirName)
 	g_ThisHost	host.Host
 	g_MyAddr        multiaddr.Multiaddr
 	g_Model		*Model
+	g_StreamManager *StreamManager
 )
+
+func loadPrivKey(filename string) crypto.PrivKey {
+
+	var keyLoaded = false
+	var b []byte
+	var prvKey crypto.PrivKey
+	s, err := ioutil.ReadFile(filename)
+	if (err == nil) {
+		b, err = base64.StdEncoding.DecodeString(string(s))
+		if (err == nil) {
+			prvKey, err = crypto.UnmarshalPrivateKey(b)
+			if (err == nil) {
+				keyLoaded = true
+			}
+		}
+		fmt.Println("Loaded private key file: ", filename)
+	}
+
+	if (!keyLoaded) {
+		fmt.Println("Generating new private key file: ", filename)
+		var r io.Reader
+		r = rand.Reader
+		prvKey, _, err = crypto.GenerateKeyPairWithReader(crypto.RSA, 2048, r)
+		b, err := crypto.MarshalPrivateKey(prvKey)
+		if err != nil {
+			panic(err)
+		}
+
+		ioutil.WriteFile(filename, []byte(base64.StdEncoding.EncodeToString(b)), 0600)
+
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	return prvKey
+}
 
 /*
 * addAddrToPeerstore parses a peer multiaddress and adds
@@ -163,35 +214,11 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 			g_Model.UpdateIndex(pmes.GetFiles())
 			continue
 		}
-
-		// TODO: update the peer on valid msgs only
-
-/*		handler := handlerForMsgType(pmes.GetType())
-		if handler == nil {
-			s.Reset()
-			return
-		}
-
-		rpmes, err := handler(ctx, mPeer, pmes)
-		if err != nil {
-			s.Reset()
-			return
-		}
-
-		if rpmes == nil {
-			continue
-		}
-
-		if err := w.WriteMsg(rpmes); err != nil {
-			s.Reset()
-			return
-		}
-		*/
 	}
 }
 
 func handleStream(s net.Stream) {
-	log.Println("Got a new stream!")
+	log.Println("Got a new stream!", s.Conn().RemoteMultiaddr(), s.Protocol())
 	ctx := context.Background() // TODO change to some timeout
 	cr := ctxio.NewReader(ctx, s)
 	cw := ctxio.NewWriter(ctx, s)
@@ -200,103 +227,55 @@ func handleStream(s net.Stream) {
 	go handleNewMessage(ctx, s, r, w)
 }
 
-/*
-function sendRequest(ctx context.Context, p peer.ID, pmes *BHMessage) (*BHMessage, error)
-{
-	ms, err := messageSenderForPeer(p)
+func NewBhStream(peerID peer.ID) (*BhStream, error) {
+	fmt.Println("NewBhStream ", peerID)
+	s, err := g_ThisHost.NewStream(context.Background(), peerID, "/chat/1.0.0")
 	if err != nil {
-		return nil, err
+		return nil,err
 	}
-
-	rpmes, err := ms.SendRequest(ctx, pmes)
-	if err != nil {
-		return nil, err
-	}
-
-	return rpmes, nil
+	ctx := context.Background()
+	cr := ctxio.NewReader(ctx, s)
+	cw := ctxio.NewWriter(ctx, s)
+	r := ggio.NewDelimitedReader(cr, net.MessageSizeMax)
+	w := ggio.NewDelimitedWriter(cw)
+	go handleNewMessage(ctx, s, r, w)
+	return &BhStream{
+		s:s,
+		r:r,
+		w:w,
+	}, nil
 }
 
-function sendMessage(ctx, context.Context, p peer.ID, pmes *BHMessage) error {
-	ms, err := messageSenderForPeer(p)
-	if err != nil {
-		return err
-	}
-
-	if err := ms.SendMessage(ctx, pmes); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func readData(rw *bufio.ReadWriter) {
-	for {
-		str, _ := rw.ReadString('\n')
-
-		if str == "" {
-			return
-		}
-		if str != "\n" {
-			// Green console colour: 	\x1b[32m
-			// Reset console colour: 	\x1b[0m
-			fmt.Printf("\x1b[32m%s\x1b[0m> ", str)
-		}
-
-	}
-}
-
-func writeData(rw *bufio.ReadWriter) {
-	stdReader := bufio.NewReader(os.Stdin)
-
-	for {
-		fmt.Print("> ")
-		sendData, err := stdReader.ReadString('\n')
-
+func (m *StreamManager)SendMessage(peerID peer.ID, pmes *BhMessage) error {
+	m.Lock()
+	bs := m.streamMap[peerID]
+	if bs == nil {
+		bs, err := NewBhStream(peerID)
 		if err != nil {
-			panic(err)
+			return err
 		}
-
-		rw.WriteString(fmt.Sprintf("%s\n", sendData))
-		rw.Flush()
+		m.streamMap[peerID] = bs
 	}
-
+	m.Unlock()
+	var err error
+	if err = bs.SendMessage(pmes); err != nil {
+		m.CloseStream(peerID)
+	}
+	return err
 }
-*/
-func loadPrivKey(filename string) crypto.PrivKey {
 
-	var keyLoaded = false
-	var b []byte
-	var prvKey crypto.PrivKey
-	s, err := ioutil.ReadFile(filename)
-	if (err == nil) {
-		b, err = base64.StdEncoding.DecodeString(string(s))
-		if (err == nil) {
-			prvKey, err = crypto.UnmarshalPrivateKey(b)
-			if (err == nil) {
-				keyLoaded = true
-			}
-		}
-		fmt.Println("Loaded private key file: ", filename)
+func (m *StreamManager)CloseStream(peerID peer.ID) {
+	m.Lock()
+	bs := m.streamMap[peerID]
+	if bs != nil {
+		fmt.Println("Setting streamMap to nil for peer", peerID)
+		m.streamMap[peerID] = nil
 	}
+	m.Unlock()
+}
 
-	if (!keyLoaded) {
-		fmt.Println("Generating new private key file: ", filename)
-		var r io.Reader
-		r = rand.Reader
-		prvKey, _, err = crypto.GenerateKeyPairWithReader(crypto.RSA, 2048, r)
-		b, err := crypto.MarshalPrivateKey(prvKey)
-		if err != nil {
-			panic(err)
-		}
-
-		ioutil.WriteFile(filename, []byte(base64.StdEncoding.EncodeToString(b)), 0600)
-
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	return prvKey
+func (bs *BhStream)SendMessage(pmes *BhMessage) error {
+	return bs.w.WriteMsg(pmes)
 }
 
 func pingLoop() {
@@ -305,38 +284,15 @@ func pingLoop() {
 	peerID := addAddrToPeerstore(g_ThisHost, master)
 
 	for {
-		// Start a stream with peer with peer Id: 'peerId'.
-		// Multiaddress of the destination peer is fetched from the peerstore using 'peerId'.
-		fmt.Println("Trying to contact master ...")
-		s, err := g_ThisHost.NewStream(context.Background(), peerID, "/chat/1.0.0")
-
-		if err != nil {
-			fmt.Println(err)
-			time.Sleep(5 * time.Second)
-			continue
-		} else {
-			// Send ping message to server
-			ctx := context.Background() // TODO change to some timeout
-			cr := ctxio.NewReader(ctx, s)
-			cw := ctxio.NewWriter(ctx, s)
-			r := ggio.NewDelimitedReader(cr, net.MessageSizeMax)
-			w := ggio.NewDelimitedWriter(cw)
-			go handleNewMessage(ctx, s, r, w)
-
-			for {
-				t := BhMessage_BH_PING
-				pmes := &BhMessage {
-					Type: &t,
-				}
-				fmt.Println("Sending BH_PING message to server")
-				if err := w.WriteMsg(pmes); err != nil {
-					fmt.Println(err)
-					break
-				} else {
-					time.Sleep(3 * time.Second)
-				}
-			}
+		t := BhMessage_BH_PING
+		pmes := &BhMessage {
+			Type: &t,
 		}
+		fmt.Println("Sending BH_PING message to server ...")
+		if err := g_StreamManager.SendMessage(peerID, pmes); err != nil {
+			fmt.Println(err)
+		}
+		time.Sleep(3 * time.Second)
 	}
 }
 
@@ -354,6 +310,10 @@ func bhmain() {
 	)
 	g_ThisHost = host
 	g_MyAddr = sourceMultiAddr
+
+	g_StreamManager = &StreamManager{
+		streamMap: make(map[peer.ID]*BhStream),
+	}
 
 	if err != nil {
 		panic(err)
