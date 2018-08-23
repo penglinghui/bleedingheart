@@ -313,10 +313,8 @@ func (m *Model) pullFile(name string) error {
 				break
 			}
 			fmt.Println("Request sent, waiting for data")
-			select {
-			case <-m.receivedBlock:
-				fmt.Println("Received data")
-			}
+			<-m.receivedBlock
+			fmt.Println("Received data")
 		}
 		fetchDone.Done()
 	}()
