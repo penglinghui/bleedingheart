@@ -116,7 +116,7 @@ func (m *Model) recomputeNeed() {
 	m.need = make(map[string]bool)
 	for n, gf := range m.global {
 		lf, ok := m.local[n]
-		if n != BytesToString(lf.Name) {
+		if ok && n != BytesToString(lf.Name) {
 			panic("Corrupted map")
 		}
 		if !ok || *gf.Modified > *lf.Modified {
