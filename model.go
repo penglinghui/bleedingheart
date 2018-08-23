@@ -192,50 +192,6 @@ func (m *Model) BuildResponse(pmes *BhMessage, rpmes *BhMessage) error {
 	return nil
 }
 
-type content struct {
-	offset uint64
-	data []byte
-}
-
-var buffers = make(chan []byte, 32)
-
-func GetBuffer(size int) []byte {
-	var buf []byte
-	select {
-	case buf = <-buffers:
-	default:
-	}
-	if len(buf) < size {
-		return make([]byte, size)
-	}
-	return buf[:size]
-}
-
-func PutBuffer(buf []byte) {
-	if cap(buf) == 0 {
-		return
-	}
-	buf = buf[:cap(buf)]
-	select {
-	case buffers <- buf:
-	default:
-	}
-}
-
-func applyContent(cc <-chan content, dst io.WriterAt) error {
-	var err error
-
-	for c := range cc {
-		_, err = dst.WriteAt(c.data, (int64)(c.offset))
-		if err != nil {
-			return err
-		}
-		PutBuffer(c.data)
-	}
-
-	return nil
-}
-
 func (m *Model) WriteBlock(b *BhBlockData) error {
 	if b == nil {
 		m.receivedBlock <- false
@@ -281,34 +237,8 @@ func (m *Model) pullFile(name string) error {
 
 	m.activeFile = tmpFile
 
-	contentChan := make(chan content, 32)
-	var applyDone sync.WaitGroup
-	applyDone.Add(1)
-	go func() {
-		applyContent(contentChan, tmpFile)
-		applyDone.Done()
-	}()
-
-	local, remote := BlockList(localFile.Blocks).To(globalFile.Blocks)
-	fmt.Println(len(local))
+	_, remote := BlockList(localFile.Blocks).To(globalFile.Blocks)
 	var fetchDone sync.WaitGroup
-
-	/*
-	fetchDone.Add(1)
-	go func() {
-		for _, block := range local {
-			data, err := m.Request("<local>", name, *block.Offset, *block.Length, block.Hash)
-			if err != nil {
-				break
-			}
-			contentChan <- content{
-				offset: *block.Offset
-				data: data,
-			}
-		}
-		fetchDone.Done()
-	}()
-	*/
 
 	var remoteBlocksChan = make(chan BhBlock)
 	go func() {
@@ -334,8 +264,6 @@ func (m *Model) pullFile(name string) error {
 	}()
 
 	fetchDone.Wait()
-	close(contentChan)
-	applyDone.Wait()
 
 	rf, err := os.Open(tmpFilename)
 	if err != nil {
@@ -366,6 +294,7 @@ func (m *Model) pullFile(name string) error {
 		return err
 	}
 
+	fmt.Printf("Validated %s", filename)
 	return nil
 }
 
@@ -374,6 +303,7 @@ func (m *Model) puller() {
 		fmt.Println("Can't pull from master")
 		return
 	}
+	done := false
 	for {
 		for {
 			var n string
@@ -389,6 +319,8 @@ func (m *Model) puller() {
 			m.RUnlock()
 
 			if len(n) == 0 {
+				fmt.Println("Fully synced")
+				done = true
 				break
 			}
 
@@ -399,6 +331,9 @@ func (m *Model) puller() {
 			} else {
 				fmt.Println(err)
 			}
+		}
+		if done {
+			break
 		}
 		time.Sleep(time.Second)
 	}
