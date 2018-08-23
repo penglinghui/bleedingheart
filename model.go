@@ -245,6 +245,11 @@ func (m *Model) pullFile(name string) error {
 	var globalFile = m.global[name]
 	m.RUnlock()
 
+	if localFile == nil {
+		localFile = &BhFile{
+		}
+	}
+
 	filename := path.Join(m.dir, name)
 	sdir := path.Dir(filename)
 
