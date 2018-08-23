@@ -116,11 +116,24 @@ func (m *Model) recomputeNeed() {
 	m.need = make(map[string]bool)
 	for n, gf := range m.global {
 		lf, ok := m.local[n]
+		if n != BytesToString(lf.Name) {
+			panic("Corrupted map")
+		}
 		if !ok || *gf.Modified > *lf.Modified {
 			m.need[n] = true
 		}
 	}
 	fmt.Println(len(m.need), "files need update")
+}
+
+func (m *Model) UpdateLocal(f BhFile) {
+	m.Lock()
+	defer m.Unlock()
+
+	if ef, ok := m.local[BytesToString(f.Name)]; !ok || ef.Modified != f.Modified {
+		m.local[BytesToString(f.Name)] = &f
+		m.recomputeNeed()
+	}
 }
 
 func (m *Model) RequestGlobal(name string, offset uint64, size uint32, hash []byte) error {
@@ -381,7 +394,7 @@ func (m *Model) puller() {
 
 			err := m.pullFile(n)
 			if err == nil {
-				//m.UpdateLocal(f)
+				m.UpdateLocal(f)
 				fmt.Println(f.Name)
 			} else {
 				fmt.Println(err)
