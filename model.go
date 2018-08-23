@@ -353,6 +353,10 @@ func (m *Model) pullFile(name string) error {
 }
 
 func (m *Model) puller() {
+	if g_IsMaster {
+		fmt.Println("Can't pull from master")
+		return
+	}
 	for {
 		for {
 			var n string

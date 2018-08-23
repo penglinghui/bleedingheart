@@ -407,6 +407,10 @@ func cmdLoop () {
 			g_Model.Dump()
 			continue
 		}
+		if (input == "p\n") {
+			g_Model.puller()
+			continue
+		}
 		if (input == "q\n") {
 			fmt.Println("Quiting ...")
 			os.Exit(0)
