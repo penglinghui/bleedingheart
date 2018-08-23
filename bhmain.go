@@ -40,7 +40,6 @@ import (
 	"path"
 	"runtime"
 	"sync"
-	"time"
 
 	ggio "github.com/gogo/protobuf/io"
 	ctxio "github.com/jbenet/go-context/io"
@@ -309,21 +308,14 @@ func (bs *BhStream)SendMessage(pmes *BhMessage) error {
 	return bs.w.WriteMsg(pmes)
 }
 
-func pingLoop() {
-	// Add destination peer multiaddress in the peerstore.
-	// This will be used during connection and stream creation by libp2p.
-	peerID := addAddrToPeerstore(g_ThisHost, master)
-
-	for {
-		t := BhMessage_BH_PING
-		pmes := &BhMessage {
-			Type: &t,
-		}
-		fmt.Println("Sending BH_PING message to server ...")
-		if err := g_StreamManager.SendMessage(peerID, pmes); err != nil {
-			fmt.Println("SendMessage failed with", err)
-		}
-		time.Sleep(3 * time.Second)
+func ping() {
+	t := BhMessage_BH_PING
+	pmes := &BhMessage {
+		Type: &t,
+	}
+	fmt.Println("Sending BH_PING message to server ...")
+	if err := g_StreamManager.SendMessage(g_MasterID, pmes); err != nil {
+		fmt.Println("SendMessage failed with", err)
 	}
 }
 
@@ -371,8 +363,6 @@ func bhmain() {
 		// This will be used during connection and stream creation by libp2p.
 		g_MasterID = addAddrToPeerstore(g_ThisHost, master)
 		g_IsMaster = false
-
-		go pingLoop()
 		cmdLoop()
 	}
 }
@@ -405,6 +395,10 @@ func cmdLoop () {
 		}
 		if (input == "d\n") {
 			g_Model.Dump()
+			continue
+		}
+		if (input == "ping\n") {
+			ping()
 			continue
 		}
 		if (input == "p\n") {

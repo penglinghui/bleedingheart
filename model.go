@@ -161,6 +161,7 @@ func (m *Model) BuildResponse(pmes *BhMessage, rpmes *BhMessage) error {
 		Name: pmes.BlockData.Name,
 		Offset: pmes.BlockData.Offset,
 		Length: pmes.BlockData.Length,
+		Hash: pmes.BlockData.Hash,
 	}
 	fn := path.Join(m.dir, BytesToString(bd.Name))
 	fmt.Printf("Building response for %s, offset %d, length %d", fn, *bd.Offset, *bd.Length)
