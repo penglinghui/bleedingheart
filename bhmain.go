@@ -36,9 +36,9 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math/big"
 	"os"
 	"path"
-	"runtime"
 	"sync"
 
 	ggio "github.com/gogo/protobuf/io"
@@ -321,11 +321,20 @@ func ping() {
 
 func bhmain() {
 
-	sourcePort := flag.Int("sp", 5564, "Source port number")
 	flag.Parse()
 	ensureDir(confDir)
 	prvKey := loadPrivKey(path.Join(confDir, "key"))
-	sourceMultiAddr, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", *sourcePort))
+	myId,_ := peer.IDFromPublicKey(prvKey.GetPublic())
+	g_IsMaster = (myId.Pretty() == masterID)
+	var sourcePort = 5564
+	if !g_IsMaster {
+		var i big.Int
+		i.SetUint64(10000)
+		randomNumber, _ := rand.Int(rand.Reader, &i)
+		sourcePort = 5564 + int(randomNumber.Int64())
+	}
+
+	sourceMultiAddr, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", sourcePort))
 	host, err := libp2p.New(
 		context.Background(),
 		libp2p.ListenAddrs(sourceMultiAddr),
@@ -347,11 +356,10 @@ func bhmain() {
 	g_Model.Refresh()
 
 	fmt.Println("--- start ----")
-	if host.ID().Pretty() == masterID {
+	if g_IsMaster {
 		fmt.Println("This is master", master)
 		host.SetStreamHandler("/chat/1.0.0", handleStream)
 		g_MasterID = host.ID()
-		g_IsMaster = true
 		cmdLoop()
 	} else {
 		fmt.Printf("My address: ")
@@ -362,7 +370,6 @@ func bhmain() {
 		// Add destination peer multiaddress in the peerstore.
 		// This will be used during connection and stream creation by libp2p.
 		g_MasterID = addAddrToPeerstore(g_ThisHost, master)
-		g_IsMaster = false
 		cmdLoop()
 	}
 }
@@ -426,6 +433,11 @@ func ensureDir(dir string) {
 }
 
 func getHomeDir() string {
+	ex, err := os.Executable()
+	if err != nil { panic(err) }
+	dir := path.Dir(ex)
+	return dir
+/*
     if runtime.GOOS == "windows" {
         home := os.Getenv("HOMEDRIVE") + os.Getenv("HOMEPATH")
         if home == "" {
@@ -434,4 +446,5 @@ func getHomeDir() string {
         return home
     }
     return os.Getenv("HOME")
+    */
 }
