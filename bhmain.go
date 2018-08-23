@@ -77,6 +77,8 @@ var (
 	g_MyAddr        multiaddr.Multiaddr
 	g_Model		*Model
 	g_StreamManager *StreamManager
+	g_MasterID      peer.ID
+	g_IsMaster	bool
 )
 
 func loadPrivKey(filename string) crypto.PrivKey {
@@ -214,6 +216,21 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 			g_Model.UpdateIndex(pmes.GetFiles())
 			continue
 		}
+		if (BhMessage_BH_REQUEST == pmes.GetType()) {
+			t := BhMessage_BH_RESPONSE
+			rpmes := &BhMessage {
+					Type: &t,
+				}
+			g_Model.BuildResponse(pmes, rpmes)
+			if err := w.WriteMsg(rpmes); err != nil {
+				fmt.Println("Failed", err)
+			}
+			continue
+		}
+		if (BhMessage_BH_RESPONSE == pmes.GetType()) {
+			g_Model.WriteBlock(pmes.GetBlockData())
+			continue
+		}
 	}
 }
 
@@ -341,6 +358,8 @@ func bhmain() {
 	if host.ID().Pretty() == masterID {
 		fmt.Println("This is master", master)
 		host.SetStreamHandler("/chat/1.0.0", handleStream)
+		g_MasterID = host.ID()
+		g_IsMaster = true
 		cmdLoop()
 	} else {
 		fmt.Printf("My address: ")
@@ -348,6 +367,10 @@ func bhmain() {
 		// Although this node will not listen for any connection. It will just initiate a connect with
 		// one of its peer and use that stream to communicate.
 		fmt.Printf("%s/ipfs/%s\n", g_MyAddr, host.ID().Pretty())
+		// Add destination peer multiaddress in the peerstore.
+		// This will be used during connection and stream creation by libp2p.
+		g_MasterID = addAddrToPeerstore(g_ThisHost, master)
+		g_IsMaster = false
 
 		go pingLoop()
 		cmdLoop()

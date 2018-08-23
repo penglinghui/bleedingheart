@@ -19,7 +19,7 @@ message BhBlockData {
 	required uint64 offset = 2;
 	required uint32 length = 3;
 	required bytes hash = 4;
-	repeated bytes data = 5;
+	required bytes data = 5;
 }
 
 message BhMessage {

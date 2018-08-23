@@ -2,7 +2,7 @@ package main
 
 import (
 	"bytes"
-	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -21,6 +21,8 @@ type Model struct {
 	global	map[string]*BhFile
 	local   map[string]*BhFile
 	need	map[string]bool
+	activeFile io.WriterAt
+	receivedBlock chan bool
 }
 
 func InitModel(dir string) {
@@ -30,6 +32,7 @@ func InitModel(dir string) {
 		global: make(map[string]*BhFile),
 		local:  make(map[string]*BhFile),
 		need:	make(map[string]bool),
+		receivedBlock: make(chan bool),
 	}
 }
 
@@ -120,36 +123,59 @@ func (m *Model) recomputeNeed() {
 	fmt.Println(len(m.need), "files need update")
 }
 
-func (m *Model) RequestGlobal(name string, offset uint64, size uint32, hash []byte) ([]byte, error) {
-	peerID := addAddrToPeerstore(g_ThisHost, master)
+func (m *Model) RequestGlobal(name string, offset uint64, size uint32, hash []byte) error {
 
-	for {
-		_, err := g_ThisHost.NewStream(context.Background(), peerID, "/chat/1.0.0")
-		if err != nil {
-			fmt.Println(err)
-			time.Sleep(5 * time.Second)
-			continue
-		} else {/*
-			ctx := context.Background()
-			cr := ctxio.NewReader(ctx, s)
-			cw := ctxio.NewWriter(ctx, s)
-			r := ggio.NewDelimitedReader(cr, net.MessageSizeMax)
-			w := ggio.NewDelimitedWriter(cw)
-
-			t := BhMessage_BH_REQUEST
-			pmes := &BhMessage {
-				Type: &t,
-			}
-			fmt.Println("Sending BH_REQUEST message to server")
-			if err := w.WriteMsg(pmes); err != nil {
-				fmt.Println(err)
-				break
-			} else {
-				time.Sleep(3 * time.Second)
-			}*/
-		}
+	if g_IsMaster {
+		return errors.New("Unexpected RequestGlobal from master")
 	}
-	return nil, nil
+
+	t := BhMessage_BH_REQUEST
+	pmes := &BhMessage {
+		Type: &t,
+	}
+	bd := new (BhBlockData)
+	bd.Name = StringToBytes(name)
+	bd.Offset = &offset
+	bd.Length= &size
+	bd.Hash = hash
+	pmes.BlockData = bd
+	if err := g_StreamManager.SendMessage(g_MasterID, pmes); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *Model) BuildResponse(pmes *BhMessage, rpmes *BhMessage) error {
+	if !g_IsMaster {
+		return errors.New("Currently only master is able to return response")
+	}
+	if pmes.BlockData == nil {
+		return errors.New("Invalid request")
+	}
+	if BlockSize < *pmes.BlockData.Length {
+		return errors.New("Invalid block size")
+	}
+
+	bd := &BhBlockData{
+		Name: pmes.BlockData.Name,
+		Offset: pmes.BlockData.Offset,
+		Length: pmes.BlockData.Length,
+	}
+	fn := path.Join(m.dir, BytesToString(bd.Name))
+	fmt.Printf("Building response for %s, offset %d, length %d", fn, *bd.Offset, *bd.Length)
+	fd, err := os.Open(fn)
+	if err != nil {
+		return err
+	}
+	defer fd.Close()
+	bd.Data = make([]byte, int(*bd.Length))
+	_, err = fd.ReadAt(bd.Data, int64(*bd.Offset))
+	if err != nil {
+		return err
+	}
+	rpmes.BlockData = bd
+	return nil
 }
 
 type content struct {
@@ -196,6 +222,23 @@ func applyContent(cc <-chan content, dst io.WriterAt) error {
 	return nil
 }
 
+func (m *Model) WriteBlock(b *BhBlockData) error {
+	if b == nil {
+		m.receivedBlock <- false
+		return errors.New("Nil blockdata")
+	}
+	if len(b.Data) != int(*b.Length) {
+		return errors.New("Mismatched data length")
+	}
+	if *b.Length > BlockSize {
+		return errors.New("Wrong blocksize")
+	}
+	fmt.Println("WriteBlock to active file")
+	m.receivedBlock <- true
+	_,err := m.activeFile.WriteAt(b.Data, (int64)(*b.Offset))
+	return err
+}
+
 func (m *Model) pullFile(name string) error {
 	m.RLock()
 	var localFile = m.local[name]
@@ -216,6 +259,8 @@ func (m *Model) pullFile(name string) error {
 		return err
 	}
 	defer tmpFile.Close()
+
+	m.activeFile = tmpFile
 
 	contentChan := make(chan content, 32)
 	var applyDone sync.WaitGroup
@@ -257,13 +302,15 @@ func (m *Model) pullFile(name string) error {
 	fetchDone.Add(1)
 	go func() {
 		for block := range remoteBlocksChan {
-			data, err := m.RequestGlobal(name, *block.Offset, *block.Length, block.Hash)
+			fmt.Println("Requesting data @", *block.Offset, name)
+			err := m.RequestGlobal(name, *block.Offset, *block.Length, block.Hash)
 			if err != nil {
 				break
 			}
-			contentChan <- content{
-				offset: *block.Offset,
-				data: data,
+			fmt.Println("Request sent, waiting for data")
+			select {
+			case <-m.receivedBlock:
+				fmt.Println("Received data")
 			}
 		}
 		fetchDone.Done()
