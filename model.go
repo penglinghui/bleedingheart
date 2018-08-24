@@ -85,7 +85,9 @@ func (m *Model) UpdateLocal(firstUpdate bool) bool {
 			}
 			m.SaveModel()
 		}
-		// go m.boradcastIndex()
+		if !g_IsMaster {
+			m.recomputeNeed()
+		}
 	} else {
 		fmt.Println("m.local already up to date")
 	}
@@ -104,6 +106,10 @@ func (m *Model) GetLocalFiles() []*BhFile {
 }
 
 func (m *Model) UpdateGlobal(firstUpdate bool) bool {
+	if g_IsMaster {
+		fmt.Println("Error: should never update global for master!")
+		return false
+	}
 	m.Lock()
 	defer m.Unlock()
 
