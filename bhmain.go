@@ -41,6 +41,7 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"time"
 
 
 	ggio "github.com/gogo/protobuf/io"
@@ -221,7 +222,7 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 			if pmes.GetUpdated() != 0 {
 				*g_Model.model.Updated = pmes.GetUpdated()
 				g_Model.model.GlobalFiles = pmes.GetFiles()
-				fmt.Println("Received global index @", pmes.GetUpdated())
+				fmt.Println("Received global index @", time.Unix(*g_Model.model.Updated, 0))
 				g_Model.UpdateGlobal(false)
 			} else {
 				fmt.Println("Updated is 0. Index discarded")

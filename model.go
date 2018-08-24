@@ -414,7 +414,7 @@ func (m *Model) SaveModel() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Model saved.")
+	fmt.Println("Model saved @", time.Unix(*m.model.Updated, 0))
 	return nil
 }
 
