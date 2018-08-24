@@ -81,6 +81,8 @@ func genWalker(res *[]*BhFile) filepath.WalkFunc {
 }
 
 func Walk() []*BhFile {
+	g_Model.RLock()
+	defer g_Model.RUnlock()
 	var files []*BhFile
 	fn := genWalker(&files)
 	err := filepath.Walk(g_Model.dir, fn)

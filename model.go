@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path"
 	"sync"
@@ -12,6 +13,7 @@ import (
 	//ggio "github.com/gogo/protobuf/io"
 	//ctxio "github.com/jbenet/go-context/io"
 	//"github.com/libp2p/go-libp2p-net"
+	"github.com/golang/protobuf/proto"
 )
 
 type Model struct {
@@ -23,6 +25,7 @@ type Model struct {
 	need	map[string]bool
 	activeFile io.WriterAt
 	receivedBlock chan bool
+	model	BhModel
 }
 
 func InitModel(dir string) {
@@ -34,7 +37,9 @@ func InitModel(dir string) {
 		local:  make(map[string]*BhFile),
 		need:	make(map[string]bool),
 		receivedBlock: make(chan bool),
+		model:  BhModel{},
 	}
+	g_Model.model.Updated = &g_Model.updated
 }
 
 func (m *Model) LocalFile(name string) (*BhFile, bool) {
@@ -44,13 +49,13 @@ func (m *Model) LocalFile(name string) (*BhFile, bool) {
 	return f, ok
 }
 
-func (m *Model) ReplaceLocal(fs []*BhFile) {
+func (m *Model) ReplaceLocal() {
 	m.Lock()
 	defer m.Unlock()
 
 	var updated bool
 	var newLocal = make(map[string]*BhFile)
-	for _, f := range fs {
+	for _, f := range m.model.LocalFiles {
 		fmt.Println("File:", BytesToString(f.Name))
 		newLocal[BytesToString(f.Name)] = f
 		ef := m.local[BytesToString(f.Name)]
@@ -72,6 +77,8 @@ func (m *Model) ReplaceLocal(fs []*BhFile) {
 			m.updated = time.Now().Unix()
 		}
 		// go m.boradcastIndex()
+	} else {
+		fmt.Println("m.local already up to date")
 	}
 }
 
@@ -377,8 +384,39 @@ func (m *Model) Dump() {
 }
 
 func (m *Model) Refresh() {
-	fmt.Println("Refresh() ...")
+	fmt.Println("Loading saved model ...")
+	m.LoadModel()
+	m.ReplaceLocal()
+	fmt.Println("Walking local files ...")
 	files := Walk()
-	m.ReplaceLocal(files)
+	m.model.LocalFiles = files
+	m.ReplaceLocal()
+	m.SaveModel()
 }
 
+func (m *Model) SaveModel() error {
+	f, err := os.Create(path.Join(confDir, "model"))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	err = proto.MarshalText(f, &m.model)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Model saved.")
+	return nil
+}
+
+func (m *Model) LoadModel() error {
+	b, err := ioutil.ReadFile(path.Join(confDir, "model"))
+	if err != nil {
+		return err
+	}
+	err = proto.UnmarshalText(BytesToString(b), &m.model)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Model loaded.")
+	return nil
+}

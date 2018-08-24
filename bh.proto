@@ -42,3 +42,10 @@ message BhMessage {
 	optional BhBlockData blockData = 5;
 };
 
+// Persisted on disk data
+message BhModel {
+	required int64 updated = 1;
+	repeated BhFile localFiles = 2;
+	repeated BhFile globalFiles = 3;
+}
+
