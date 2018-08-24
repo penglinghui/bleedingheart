@@ -126,11 +126,11 @@ func (m *Model) UpdateGlobal(firstUpdate bool) {
 	}
 
 	if updated {
+		m.global = newGlobal
 		if firstUpdate {
 			fmt.Println("m.global loaded from model")
 		} else {
 			fmt.Println("m.global updated")
-			m.global = newGlobal
 			m.SaveModel()
 		}
 		m.recomputeNeed()
