@@ -148,7 +148,7 @@ func (m *Model) recomputeNeed() {
 		}
 		if !ok || *gf.Modified > *lf.Modified {
 			m.need[n] = true
-			fmt.Println("File not up-to-date:", n)
+			fmt.Println("File not up-to-date:", n, time.Unix(*gf.Modified,0), time.Unix(*lf.Modified,0))
 		}
 	}
 	fmt.Println(len(m.need), "files need update")
