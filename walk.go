@@ -50,6 +50,7 @@ func genWalker(res *[]*BhFile) filepath.WalkFunc {
 			}
 			modified := fi.ModTime().Unix()
 
+			rn = filepath.ToSlash(rn)
 			hf, ok := g_Model.LocalFile(rn)
 			if ok && *hf.Modified == modified {
 				// No change
