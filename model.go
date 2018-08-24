@@ -361,6 +361,7 @@ func (m *Model) puller() {
 		fmt.Println("Can't pull from master")
 		return
 	}
+	pulled := false
 	done := false
 	for {
 		for {
@@ -384,15 +385,18 @@ func (m *Model) puller() {
 
 			err := m.pullFile(n)
 			if err == nil {
+				pulled = true
 				m.UpdateLocalFile(f)
 			} else {
 				fmt.Println(err)
 			}
 		}
 		if done {
-			if !m.Refresh() {
-				// updated m.local in sync with m.model.LocalFiles, force saving m.model.LocalFiles
-				m.SaveModel()
+			if pulled {
+				if !m.Refresh() {
+					// updated m.local in sync with m.model.LocalFiles, force saving m.model.LocalFiles
+					m.SaveModel()
+				}
 			}
 			break
 		}
