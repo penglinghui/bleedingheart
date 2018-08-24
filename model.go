@@ -49,7 +49,7 @@ func (m *Model) LocalFile(name string) (*BhFile, bool) {
 	return f, ok
 }
 
-func (m *Model) ReplaceLocal() {
+func (m *Model) UpdateLocal() {
 	m.Lock()
 	defer m.Unlock()
 
@@ -93,13 +93,13 @@ func (m *Model) GetLocalFiles() []*BhFile {
 	return files
 }
 
-func (m *Model) UpdateIndex(updated_new int64, fs []*BhFile) {
+func (m *Model) UpdateGlobal() {
 	m.Lock()
 	defer m.Unlock()
 
 	var updated bool
 	var newGlobal = make(map[string]*BhFile)
-	for _, f := range fs {
+	for _, f := range m.model.GlobalFiles {
 		fmt.Println("File:", BytesToString(f.Name))
 		newGlobal[BytesToString(f.Name)] = f
 		ef := m.global[BytesToString(f.Name)]
@@ -119,7 +119,7 @@ func (m *Model) UpdateIndex(updated_new int64, fs []*BhFile) {
 	if updated {
 		fmt.Println("m.global updated")
 		m.global = newGlobal
-		m.updated = updated_new
+		m.SaveModel()
 		m.recomputeNeed()
 	}
 }
@@ -138,7 +138,7 @@ func (m *Model) recomputeNeed() {
 	fmt.Println(len(m.need), "files need update")
 }
 
-func (m *Model) UpdateLocal(f BhFile) {
+func (m *Model) UpdateLocalFile(f BhFile) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -356,7 +356,7 @@ func (m *Model) puller() {
 
 			err := m.pullFile(n)
 			if err == nil {
-				m.UpdateLocal(f)
+				m.UpdateLocalFile(f)
 				fmt.Println(BytesToString(f.Name))
 			} else {
 				fmt.Println(err)
@@ -386,11 +386,11 @@ func (m *Model) Dump() {
 func (m *Model) Refresh() {
 	fmt.Println("Loading saved model ...")
 	m.LoadModel()
-	m.ReplaceLocal()
+	m.UpdateLocal()
 	fmt.Println("Walking local files ...")
 	files := Walk()
 	m.model.LocalFiles = files
-	m.ReplaceLocal()
+	m.UpdateLocal()
 	m.SaveModel()
 }
 

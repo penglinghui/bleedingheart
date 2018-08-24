@@ -219,8 +219,10 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 				f.Dump()
 			}
 			if pmes.GetUpdated() != 0 {
-				fmt.Println("Updated:", pmes.GetUpdated())
-				g_Model.UpdateIndex(pmes.GetUpdated(), pmes.GetFiles())
+				g_Model.updated = pmes.GetUpdated()
+				g_Model.model.GlobalFiles = pmes.GetFiles()
+				fmt.Println("Received global index @", pmes.GetUpdated())
+				g_Model.UpdateGlobal()
 			} else {
 				fmt.Println("Updated is 0. Index discarded")
 			}
