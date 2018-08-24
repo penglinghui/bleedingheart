@@ -210,6 +210,7 @@ func (m *Model) WriteBlock(b *BhBlockData) error {
 }
 
 func (m *Model) pullFile(name string) error {
+	var err error
 	m.RLock()
 	var localFile = m.local[name]
 	var globalFile = m.global[name]
@@ -223,73 +224,87 @@ func (m *Model) pullFile(name string) error {
 	filename := path.Join(m.dir, name)
 	sdir := path.Dir(filename)
 
-	_, err := os.Stat(sdir)
+	_, err = os.Stat(sdir)
 	if err != nil && os.IsNotExist(err) {
 		os.MkdirAll(sdir, 0777)
 	}
 
 	tmpFilename := tempName(filename, *globalFile.Modified)
+
+	// On Windows, rename only works after tmpFile is closed
+	defer func() {
+		if err == nil {
+			for i:=0; i<10; i++ {
+				err = os.Rename(tmpFilename, filename)
+				if err == nil {
+					break
+				}
+				fmt.Println("Rename failed. Retry...", i, err)
+				time.Sleep(time.Duration(i+1)*time.Second)
+			}
+
+			fmt.Printf("Validated %s\n", filename)
+		}
+	}()
+
 	tmpFile, err := os.Create(tmpFilename)
 	if err != nil {
 		return err
 	}
 	m.activeFile = tmpFile
-	{
-		defer func() {
-			tmpFile.Close()
-			fmt.Println("Closed tmpfile")
-		}()
+	defer func() {
+		tmpFile.Close()
+		fmt.Println("Closed tmpfile")
+	}()
 
-		_, remote := BlockList(localFile.Blocks).To(globalFile.Blocks)
-		var fetchDone sync.WaitGroup
+	_, remote := BlockList(localFile.Blocks).To(globalFile.Blocks)
+	var fetchDone sync.WaitGroup
 
-		var remoteBlocksChan = make(chan BhBlock)
-		go func() {
-			for _, block := range remote {
-				remoteBlocksChan <- *block
+	var remoteBlocksChan = make(chan BhBlock)
+	go func() {
+		for _, block := range remote {
+			remoteBlocksChan <- *block
+		}
+		close(remoteBlocksChan)
+	}()
+
+	fetchDone.Add(1)
+	go func() {
+		for block := range remoteBlocksChan {
+			fmt.Println("Requesting data @", *block.Offset, name)
+			err := m.RequestGlobal(name, *block.Offset, *block.Length, block.Hash)
+			if err != nil {
+				break
 			}
-			close(remoteBlocksChan)
-		}()
+			fmt.Println("Request sent, waiting for data")
+			<-m.receivedBlock
+			fmt.Println("Received data")
+		}
+		fetchDone.Done()
+	}()
 
-		fetchDone.Add(1)
-		go func() {
-			for block := range remoteBlocksChan {
-				fmt.Println("Requesting data @", *block.Offset, name)
-				err := m.RequestGlobal(name, *block.Offset, *block.Length, block.Hash)
-				if err != nil {
-					break
-				}
-				fmt.Println("Request sent, waiting for data")
-				<-m.receivedBlock
-				fmt.Println("Received data")
-			}
-			fetchDone.Done()
-		}()
-
-		fetchDone.Wait()
-	}
+	fetchDone.Wait()
 
 	rf, err := os.Open(tmpFilename)
 	if err != nil {
 		return err
 	}
-	{
-		defer func() {
-			rf.Close()
-			fmt.Println("Closed file")
-		}()
+	defer func() {
+		rf.Close()
+		fmt.Println("Closed file")
+	}()
 
-		writtenBlocks, err := Blocks(rf, BlockSize)
-		if err != nil {
+	writtenBlocks, err := Blocks(rf, BlockSize)
+	if err != nil {
+		return err
+	}
+	if len(writtenBlocks) != len(globalFile.Blocks) {
+		return fmt.Errorf("%s: blocks %d != %d", tmpFilename, len(writtenBlocks), len(globalFile.Blocks))
+	}
+	for i := range writtenBlocks {
+		if bytes.Compare(writtenBlocks[i].Hash, globalFile.Blocks[i].Hash) != 0 {
+			err = fmt.Errorf("%s, hash mismatch after sync\n %v\n %v", tmpFilename, writtenBlocks[i], globalFile.Blocks[i])
 			return err
-		}
-		if len(writtenBlocks) != len(globalFile.Blocks) {
-			return fmt.Errorf("%s: blocks %d != %d", tmpFilename, len(writtenBlocks), len(globalFile.Blocks))
-		}
-		for i := range writtenBlocks {
-			if bytes.Compare(writtenBlocks[i].Hash, globalFile.Blocks[i].Hash) != 0 {
-				return fmt.Errorf("%s, hash mismatch after sync\n %v\n %v", tmpFilename, writtenBlocks[i], globalFile.Blocks[i])
-			}
 		}
 	}
 
@@ -298,16 +313,6 @@ func (m *Model) pullFile(name string) error {
 		return err
 	}
 
-	for i:=0; i<10; i++ {
-		err = os.Rename(tmpFilename, filename)
-		if err == nil {
-			break
-		}
-		fmt.Println("Rename failed. Retry...", i, err)
-		time.Sleep(time.Duration(i+1)*time.Second)
-	}
-
-	fmt.Printf("Validated %s\n", filename)
 	return nil
 }
 
