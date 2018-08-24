@@ -39,7 +39,9 @@ import (
 	"math/big"
 	"os"
 	"path"
+	"strings"
 	"sync"
+
 
 	ggio "github.com/gogo/protobuf/io"
 	ctxio "github.com/jbenet/go-context/io"
@@ -391,28 +393,40 @@ func cmdLoop () {
 		if err != nil {
 			panic(err)
 		}
+		input = strings.TrimRight(input, "\r\n")
 
-		if (input == "l\n") {
+		if (input == "l") {
 			dumpHost(g_ThisHost)
 			continue
 		}
-		if (input == "r\n") {
+		if (input == "r") {
 			g_Model.Refresh()
 			continue
 		}
-		if (input == "d\n") {
+		if (input == "d") {
 			g_Model.Dump()
 			continue
 		}
-		if (input == "ping\n") {
+		if (input == "ping") {
 			ping()
 			continue
 		}
-		if (input == "p\n") {
+		if (input == "p") {
 			g_Model.puller()
 			continue
 		}
-		if (input == "q\n") {
+		if (input == "h") || (input == "?") {
+			fmt.Println(
+`l - dumpHost
+r - Refresh
+d - Dump
+ping - ping
+p - Puller
+h,? - help
+q - quit`)
+			continue
+		}
+		if (input == "q") {
 			fmt.Println("Quiting ...")
 			os.Exit(0)
 		} else {
