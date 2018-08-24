@@ -17,9 +17,9 @@ import (
 type Model struct {
 	sync.RWMutex
 	dir	string
-	updated int64
-	global	map[string]*BhFile
-	local   map[string]*BhFile
+	updated int64		    // time from the master node for the global index timestamp
+	global	map[string]*BhFile  // view of the master node
+	local   map[string]*BhFile  // view of the local files
 	need	map[string]bool
 	activeFile io.WriterAt
 	receivedBlock chan bool
@@ -29,6 +29,7 @@ func InitModel(dir string) {
 	ensureDir(confDir)
 	g_Model = &Model{
 		dir:	dir,
+		updated: 0,
 		global: make(map[string]*BhFile),
 		local:  make(map[string]*BhFile),
 		need:	make(map[string]bool),
@@ -67,6 +68,9 @@ func (m *Model) ReplaceLocal(fs []*BhFile) {
 	if updated {
 		fmt.Println("m.local updated")
 		m.local = newLocal
+		if g_IsMaster {
+			m.updated = time.Now().Unix()
+		}
 		// go m.boradcastIndex()
 	}
 }
@@ -82,7 +86,7 @@ func (m *Model) GetLocalFiles() []*BhFile {
 	return files
 }
 
-func (m *Model) UpdateIndex(fs []*BhFile) {
+func (m *Model) UpdateIndex(updated_new int64, fs []*BhFile) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -108,6 +112,7 @@ func (m *Model) UpdateIndex(fs []*BhFile) {
 	if updated {
 		fmt.Println("m.global updated")
 		m.global = newGlobal
+		m.updated = updated_new
 		m.recomputeNeed()
 	}
 }
@@ -345,7 +350,7 @@ func (m *Model) puller() {
 			err := m.pullFile(n)
 			if err == nil {
 				m.UpdateLocal(f)
-				fmt.Println(f.Name)
+				fmt.Println(BytesToString(f.Name))
 			} else {
 				fmt.Println(err)
 			}

@@ -194,6 +194,7 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 			t1 := BhMessage_BH_INDEX
 			rpmes1 := &BhMessage {
 					Type: &t1,
+					Updated: &g_Model.updated,
 				}
 			rpmes1.Files = g_Model.GetLocalFiles()
 			fmt.Println("Send BH_INDEX message back")
@@ -217,7 +218,12 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 			for _,f := range pmes.GetFiles() {
 				f.Dump()
 			}
-			g_Model.UpdateIndex(pmes.GetFiles())
+			if pmes.GetUpdated() != 0 {
+				fmt.Println("Updated:", pmes.GetUpdated())
+				g_Model.UpdateIndex(pmes.GetUpdated(), pmes.GetFiles())
+			} else {
+				fmt.Println("Updated is 0. Index discarded")
+			}
 			continue
 		}
 		if (BhMessage_BH_REQUEST == pmes.GetType()) {
