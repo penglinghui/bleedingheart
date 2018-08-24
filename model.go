@@ -233,54 +233,57 @@ func (m *Model) pullFile(name string) error {
 	if err != nil {
 		return err
 	}
-	defer tmpFile.Close()
-
 	m.activeFile = tmpFile
+	{
+		defer tmpFile.Close()
 
-	_, remote := BlockList(localFile.Blocks).To(globalFile.Blocks)
-	var fetchDone sync.WaitGroup
+		_, remote := BlockList(localFile.Blocks).To(globalFile.Blocks)
+		var fetchDone sync.WaitGroup
 
-	var remoteBlocksChan = make(chan BhBlock)
-	go func() {
-		for _, block := range remote {
-			remoteBlocksChan <- *block
-		}
-		close(remoteBlocksChan)
-	}()
-
-	fetchDone.Add(1)
-	go func() {
-		for block := range remoteBlocksChan {
-			fmt.Println("Requesting data @", *block.Offset, name)
-			err := m.RequestGlobal(name, *block.Offset, *block.Length, block.Hash)
-			if err != nil {
-				break
+		var remoteBlocksChan = make(chan BhBlock)
+		go func() {
+			for _, block := range remote {
+				remoteBlocksChan <- *block
 			}
-			fmt.Println("Request sent, waiting for data")
-			<-m.receivedBlock
-			fmt.Println("Received data")
-		}
-		fetchDone.Done()
-	}()
+			close(remoteBlocksChan)
+		}()
 
-	fetchDone.Wait()
+		fetchDone.Add(1)
+		go func() {
+			for block := range remoteBlocksChan {
+				fmt.Println("Requesting data @", *block.Offset, name)
+				err := m.RequestGlobal(name, *block.Offset, *block.Length, block.Hash)
+				if err != nil {
+					break
+				}
+				fmt.Println("Request sent, waiting for data")
+				<-m.receivedBlock
+				fmt.Println("Received data")
+			}
+			fetchDone.Done()
+		}()
+
+		fetchDone.Wait()
+	}
 
 	rf, err := os.Open(tmpFilename)
 	if err != nil {
 		return err
 	}
-	defer rf.Close()
+	{
+		defer rf.Close()
 
-	writtenBlocks, err := Blocks(rf, BlockSize)
-	if err != nil {
-		return err
-	}
-	if len(writtenBlocks) != len(globalFile.Blocks) {
-		return fmt.Errorf("%s: blocks %d != %d", tmpFilename, len(writtenBlocks), len(globalFile.Blocks))
-	}
-	for i := range writtenBlocks {
-		if bytes.Compare(writtenBlocks[i].Hash, globalFile.Blocks[i].Hash) != 0 {
-			return fmt.Errorf("%s, hash mismatch after sync\n %v\n %v", tmpFilename, writtenBlocks[i], globalFile.Blocks[i])
+		writtenBlocks, err := Blocks(rf, BlockSize)
+		if err != nil {
+			return err
+		}
+		if len(writtenBlocks) != len(globalFile.Blocks) {
+			return fmt.Errorf("%s: blocks %d != %d", tmpFilename, len(writtenBlocks), len(globalFile.Blocks))
+		}
+		for i := range writtenBlocks {
+			if bytes.Compare(writtenBlocks[i].Hash, globalFile.Blocks[i].Hash) != 0 {
+				return fmt.Errorf("%s, hash mismatch after sync\n %v\n %v", tmpFilename, writtenBlocks[i], globalFile.Blocks[i])
+			}
 		}
 	}
 
