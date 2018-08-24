@@ -292,12 +292,16 @@ func (m *Model) pullFile(name string) error {
 		return err
 	}
 
-	err = os.Rename(tmpFilename, filename)
-	if err != nil {
-		return err
+	for i:=0; i<10; i++ {
+		err = os.Rename(tmpFilename, filename)
+		if err == nil {
+			break
+		}
+		fmt.Println("Rename failed. Retry...", i, err)
+		time.Sleep(time.Duration(i+1)*time.Second)
 	}
 
-	fmt.Printf("Validated %s", filename)
+	fmt.Printf("Validated %s\n", filename)
 	return nil
 }
 
