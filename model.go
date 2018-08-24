@@ -19,7 +19,6 @@ import (
 type Model struct {
 	sync.RWMutex
 	dir	string
-	updated int64		    // time from the master node for the global index timestamp
 	global	map[string]*BhFile  // view of the master node
 	local   map[string]*BhFile  // view of the local files
 	need	map[string]bool
@@ -32,14 +31,19 @@ func InitModel(dir string) {
 	ensureDir(confDir)
 	g_Model = &Model{
 		dir:	dir,
-		updated: 0,
 		global: make(map[string]*BhFile),
 		local:  make(map[string]*BhFile),
 		need:	make(map[string]bool),
 		receivedBlock: make(chan bool),
 		model:  BhModel{},
 	}
-	g_Model.model.Updated = &g_Model.updated
+	var dummy int64 = 0
+	g_Model.model.Updated = &dummy
+	fmt.Println("Loading saved model ...")
+	g_Model.LoadModel()
+	g_Model.UpdateLocal(true)
+	g_Model.UpdateGlobal()
+	g_Model.Refresh()
 }
 
 func (m *Model) LocalFile(name string) (*BhFile, bool) {
@@ -49,7 +53,7 @@ func (m *Model) LocalFile(name string) (*BhFile, bool) {
 	return f, ok
 }
 
-func (m *Model) UpdateLocal() {
+func (m *Model) UpdateLocal(firstUpdate bool) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -71,10 +75,15 @@ func (m *Model) UpdateLocal() {
 	}
 
 	if updated {
-		fmt.Println("m.local updated")
 		m.local = newLocal
-		if g_IsMaster {
-			m.updated = time.Now().Unix()
+		if firstUpdate {
+			fmt.Println("m.local loaded without change")
+		} else {
+			fmt.Println("m.local updated")
+			if g_IsMaster {
+				*m.model.Updated = time.Now().Unix()
+			}
+			m.SaveModel()
 		}
 		// go m.boradcastIndex()
 	} else {
@@ -373,6 +382,7 @@ func (m *Model) Dump() {
 	m.RLock()
 	defer m.RUnlock()
 
+	fmt.Println("Updated: ", time.Unix(*m.model.Updated, 0))
 	fmt.Println("---------------- global ----------------")
 	for f := range m.global {
 		m.global[f].Dump()
@@ -384,14 +394,10 @@ func (m *Model) Dump() {
 }
 
 func (m *Model) Refresh() {
-	fmt.Println("Loading saved model ...")
-	m.LoadModel()
-	m.UpdateLocal()
 	fmt.Println("Walking local files ...")
 	files := Walk()
 	m.model.LocalFiles = files
-	m.UpdateLocal()
-	m.SaveModel()
+	m.UpdateLocal(false)
 }
 
 func (m *Model) SaveModel() error {
@@ -417,6 +423,6 @@ func (m *Model) LoadModel() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Model loaded.")
+	fmt.Println("Model loaded. Updated @", time.Unix(*m.model.Updated,0))
 	return nil
 }

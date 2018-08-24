@@ -194,7 +194,7 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 			t1 := BhMessage_BH_INDEX
 			rpmes1 := &BhMessage {
 					Type: &t1,
-					Updated: &g_Model.updated,
+					Updated: g_Model.model.Updated,
 				}
 			rpmes1.Files = g_Model.GetLocalFiles()
 			fmt.Println("Send BH_INDEX message back")
@@ -219,7 +219,7 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 				f.Dump()
 			}
 			if pmes.GetUpdated() != 0 {
-				g_Model.updated = pmes.GetUpdated()
+				*g_Model.model.Updated = pmes.GetUpdated()
 				g_Model.model.GlobalFiles = pmes.GetFiles()
 				fmt.Println("Received global index @", pmes.GetUpdated())
 				g_Model.UpdateGlobal()
@@ -366,7 +366,6 @@ func bhmain() {
 	root := path.Join(confDir, "bh")
 	ensureDir(root)
 	InitModel(root)
-	g_Model.Refresh()
 
 	fmt.Println("--- start ----")
 	if g_IsMaster {
