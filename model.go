@@ -235,7 +235,10 @@ func (m *Model) pullFile(name string) error {
 	}
 	m.activeFile = tmpFile
 	{
-		defer tmpFile.Close()
+		defer func() {
+			tmpFile.Close()
+			fmt.Println("Closed tmpfile")
+		}()
 
 		_, remote := BlockList(localFile.Blocks).To(globalFile.Blocks)
 		var fetchDone sync.WaitGroup
@@ -271,7 +274,10 @@ func (m *Model) pullFile(name string) error {
 		return err
 	}
 	{
-		defer rf.Close()
+		defer func() {
+			rf.Close()
+			fmt.Println("Closed file")
+		}()
 
 		writtenBlocks, err := Blocks(rf, BlockSize)
 		if err != nil {
