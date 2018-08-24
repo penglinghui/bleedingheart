@@ -53,7 +53,7 @@ func (m *Model) LocalFile(name string) (*BhFile, bool) {
 	return f, ok
 }
 
-func (m *Model) UpdateLocal(firstUpdate bool) {
+func (m *Model) UpdateLocal(firstUpdate bool) bool {
 	m.Lock()
 	defer m.Unlock()
 
@@ -89,6 +89,7 @@ func (m *Model) UpdateLocal(firstUpdate bool) {
 	} else {
 		fmt.Println("m.local already up to date")
 	}
+	return updated
 }
 
 func (m *Model) GetLocalFiles() []*BhFile {
@@ -102,7 +103,7 @@ func (m *Model) GetLocalFiles() []*BhFile {
 	return files
 }
 
-func (m *Model) UpdateGlobal(firstUpdate bool) {
+func (m *Model) UpdateGlobal(firstUpdate bool) bool {
 	m.Lock()
 	defer m.Unlock()
 
@@ -137,6 +138,7 @@ func (m *Model) UpdateGlobal(firstUpdate bool) {
 	} else {
 		fmt.Println("m.global already up-to-date")
 	}
+	return updated
 }
 
 func (m *Model) recomputeNeed() {
@@ -377,12 +379,15 @@ func (m *Model) puller() {
 			err := m.pullFile(n)
 			if err == nil {
 				m.UpdateLocalFile(f)
-				fmt.Println(BytesToString(f.Name))
 			} else {
 				fmt.Println(err)
 			}
 		}
 		if done {
+			if !m.Refresh() {
+				// updated m.local in sync with m.model.LocalFiles, force saving m.model.LocalFiles
+				m.SaveModel()
+			}
 			break
 		}
 		time.Sleep(time.Second)
@@ -404,11 +409,11 @@ func (m *Model) Dump() {
 	}
 }
 
-func (m *Model) Refresh() {
+func (m *Model) Refresh() bool {
 	fmt.Println("Walking local files ...")
 	files := Walk()
 	m.model.LocalFiles = files
-	m.UpdateLocal(false)
+	return m.UpdateLocal(false)
 }
 
 func (m *Model) SaveModel() error {
