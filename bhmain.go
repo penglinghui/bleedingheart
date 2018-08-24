@@ -162,7 +162,7 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 
 	for {
 		pmes := new(BhMessage)
-		fmt.Println("Waiting for new message...")
+		//fmt.Println("Waiting for new message...")
 		switch err := r.ReadMsg(pmes); err {
 		case io.EOF:
 			s.Close()

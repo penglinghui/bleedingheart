@@ -134,6 +134,8 @@ func (m *Model) UpdateGlobal(firstUpdate bool) {
 			m.SaveModel()
 		}
 		m.recomputeNeed()
+	} else {
+		fmt.Println("m.global already up-to-date")
 	}
 }
 
