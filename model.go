@@ -42,7 +42,7 @@ func InitModel(dir string) {
 	fmt.Println("Loading saved model ...")
 	g_Model.LoadModel()
 	g_Model.UpdateLocal(true)
-	g_Model.UpdateGlobal()
+	g_Model.UpdateGlobal(true)
 	g_Model.Refresh()
 }
 
@@ -77,7 +77,7 @@ func (m *Model) UpdateLocal(firstUpdate bool) {
 	if updated {
 		m.local = newLocal
 		if firstUpdate {
-			fmt.Println("m.local loaded without change")
+			fmt.Println("m.local loaded from model")
 		} else {
 			fmt.Println("m.local updated")
 			if g_IsMaster {
@@ -102,7 +102,7 @@ func (m *Model) GetLocalFiles() []*BhFile {
 	return files
 }
 
-func (m *Model) UpdateGlobal() {
+func (m *Model) UpdateGlobal(firstUpdate bool) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -126,9 +126,13 @@ func (m *Model) UpdateGlobal() {
 	}
 
 	if updated {
-		fmt.Println("m.global updated")
-		m.global = newGlobal
-		m.SaveModel()
+		if firstUpdate {
+			fmt.Println("m.global loaded from model")
+		} else {
+			fmt.Println("m.global updated")
+			m.global = newGlobal
+			m.SaveModel()
+		}
 		m.recomputeNeed()
 	}
 }
