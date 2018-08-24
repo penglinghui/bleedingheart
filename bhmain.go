@@ -207,7 +207,9 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 			peers := BhPeersToPeerInfos(pmes.GetPeers())
 			for i,p := range peers {
 				fmt.Println(i, p.ID, p.Addrs)
-				g_ThisHost.Peerstore().AddAddrs(p.ID, p.Addrs, peerstore.AddressTTL)
+				if p.ID != g_ThisHost.ID() {
+					g_ThisHost.Peerstore().AddAddrs(p.ID, p.Addrs, peerstore.AddressTTL)
+				}
 			}
 			continue
 		}
