@@ -182,7 +182,7 @@ func (m *Model) RequestGlobal(name string, offset uint64, size uint32, hash []by
 		return errors.New("Unexpected RequestGlobal from master")
 	}
 
-	t := BhMessage_BH_REQUEST
+	t := BhMessage_BH_BLOCK_REQUEST
 	pmes := &BhMessage {
 		Type: &t,
 	}

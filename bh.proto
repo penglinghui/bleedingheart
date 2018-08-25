@@ -25,10 +25,13 @@ message BhBlockData {
 message BhMessage {
 	enum BhMessageType {
 		BH_PING = 1;
-		BH_PEERS = 2;
-		BH_INDEX = 3;
-		BH_REQUEST = 4;
-		BH_RESPONSE = 5;
+		BH_PONG = 2;
+		BH_PEERS_REQUEST = 3;
+		BH_PEERS = 4;
+		BH_INDEX_REQUEST = 5;
+		BH_INDEX = 6;
+		BH_BLOCK_REQUEST = 7;
+		BH_BLOCK = 8;
 	};
 
 	required BhMessageType type = 1;

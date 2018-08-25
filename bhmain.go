@@ -162,7 +162,6 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 
 	for {
 		pmes := new(BhMessage)
-		//fmt.Println("Waiting for new message...")
 		switch err := r.ReadMsg(pmes); err {
 		case io.EOF:
 			s.Close()
@@ -177,6 +176,20 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 
 		fmt.Println("Got a message from", s.Conn().RemotePeer(), ". Type: ", pmes.GetType())
 		if (BhMessage_BH_PING == pmes.GetType()) {
+			t := BhMessage_BH_PONG
+			rpmes := &BhMessage {
+					Type: &t,
+					Updated: g_Model.model.Updated,
+				}
+			fmt.Println("Send BH_PONG back")
+			w.WriteMsg(rpmes)
+			continue
+		}
+		if (BhMessage_BH_PONG == pmes.GetType()) {
+			g_Network.Update(s.Conn().RemotePeer())
+			continue
+		}
+		if (BhMessage_BH_PEERS_REQUEST == pmes.GetType()) {
 			t := BhMessage_BH_PEERS
 			rpmes := &BhMessage {
 					Type: &t,
@@ -186,23 +199,7 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 						g_ThisHost.Peerstore(),
 						g_ThisHost.Peerstore().Peers()))
 			fmt.Println("Send BH_PEERS message back")
-			if err := w.WriteMsg(rpmes); err != nil {
-				fmt.Println("Failed", err)
-				//s.Reset()
-				continue
-			}
-
-			t1 := BhMessage_BH_INDEX
-			rpmes1 := &BhMessage {
-					Type: &t1,
-					Updated: g_Model.model.Updated,
-				}
-			rpmes1.Files = g_Model.GetLocalFiles()
-			fmt.Println("Send BH_INDEX message back")
-			if err := w.WriteMsg(rpmes1); err != nil {
-				fmt.Println("Failed", err)
-				continue
-			}
+			w.WriteMsg(rpmes)
 			continue
 		}
 		if (BhMessage_BH_PEERS == pmes.GetType()) {
@@ -213,6 +210,17 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 					g_ThisHost.Peerstore().AddAddrs(p.ID, p.Addrs, peerstore.AddressTTL)
 				}
 			}
+			continue
+		}
+		if (BhMessage_BH_INDEX_REQUEST == pmes.GetType()) {
+			t := BhMessage_BH_INDEX
+			rpmes := &BhMessage {
+					Type: &t,
+					Updated: g_Model.model.Updated,
+				}
+			rpmes.Files = g_Model.GetLocalFiles()
+			fmt.Println("Send BH_INDEX message back")
+			w.WriteMsg(rpmes)
 			continue
 		}
 		if (BhMessage_BH_INDEX == pmes.GetType()) {
@@ -229,18 +237,16 @@ func handleNewMessage(ctx context.Context, s net.Stream, r ggio.ReadCloser, w gg
 			}
 			continue
 		}
-		if (BhMessage_BH_REQUEST == pmes.GetType()) {
-			t := BhMessage_BH_RESPONSE
+		if (BhMessage_BH_BLOCK_REQUEST == pmes.GetType()) {
+			t := BhMessage_BH_BLOCK
 			rpmes := &BhMessage {
 					Type: &t,
 				}
 			g_Model.BuildResponse(pmes, rpmes)
-			if err := w.WriteMsg(rpmes); err != nil {
-				fmt.Println("Failed", err)
-			}
+			w.WriteMsg(rpmes)
 			continue
 		}
-		if (BhMessage_BH_RESPONSE == pmes.GetType()) {
+		if (BhMessage_BH_BLOCK == pmes.GetType()) {
 			g_Model.WriteBlock(pmes.GetBlockData())
 			continue
 		}
